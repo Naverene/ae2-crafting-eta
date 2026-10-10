@@ -5,39 +5,87 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraftforge.client.event.GuiScreenEvent;
 
 import com.naverene.ae2craftingeta.Config;
+import com.naverene.ae2craftingeta.eta.EtaCalculator;
+import com.naverene.ae2craftingeta.eta.EtaResult;
+import com.naverene.ae2craftingeta.mixins.late.AccessorGuiCraftConfirm;
 import com.naverene.ae2craftingeta.network.PacketEta;
 
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.implementations.GuiCraftConfirm;
 import appeng.client.gui.implementations.GuiCraftingCPU;
+import appeng.container.implementations.ContainerCraftConfirm;
+import appeng.crafting.v2.CraftingJobV2;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
-/** Draws the estimate just above the crafting plan and crafting status windows. */
+/**
+ * Draws the estimate just above the crafting plan and crafting status windows. Uses the server's estimate when the
+ * server has this mod, and works it out on the client otherwise.
+ */
 public class EtaOverlay {
 
     private static final int COLOR = 0xFFFFFF;
+    private static final long RUNNING_REFRESH_MILLIS = 500;
+
+    private Object cachedJob;
+    private int cachedCoProcessors;
+    private EtaResult cachedPlan;
+    private EtaResult cachedRunning;
+    private long runningComputedAt;
 
     @SubscribeEvent
     public void onDrawScreen(GuiScreenEvent.DrawScreenEvent.Post event) {
         if (!Config.showCraftingScreenEta) {
             return;
         }
-        int mode = ClientEtaState.mode;
         String label;
-        if (event.gui instanceof GuiCraftConfirm && mode == PacketEta.PLAN) {
+        EtaResult eta;
+        if (event.gui instanceof GuiCraftConfirm confirm) {
             label = "Estimated time: ";
-        } else if (event.gui instanceof GuiCraftingCPU && mode == PacketEta.RUNNING) {
+            eta = planEta(confirm);
+        } else if (event.gui instanceof GuiCraftingCPU) {
             label = "Time remaining: about ";
+            eta = runningEta();
         } else {
             return;
         }
+        if (eta == null || eta.totalSteps == 0) {
+            return;
+        }
         AEBaseGui gui = (AEBaseGui) event.gui;
-        String text = label + TimeFormat.format(ClientEtaState.ticks / 20.0);
-        int unknown = ClientEtaState.unknownSteps;
-        if (unknown > 0) {
-            text += " (" + unknown + " of " + ClientEtaState.totalSteps + " steps not measured yet)";
+        String text = label + TimeFormat.format(eta.ticks / 20.0);
+        if (eta.unknownSteps > 0) {
+            text += " (" + eta.unknownSteps + " of " + eta.totalSteps + " steps not measured yet)";
         }
         FontRenderer font = Minecraft.getMinecraft().fontRenderer;
         font.drawStringWithShadow(text, gui.getGuiLeft() + 2, gui.getGuiTop() - 10, COLOR);
+    }
+
+    private EtaResult planEta(GuiCraftConfirm gui) {
+        if (ClientTimings.serverHasMod()) {
+            return ClientEtaState.mode == PacketEta.PLAN ? ClientEtaState.result() : null;
+        }
+        CraftingJobV2<?> job = ((AccessorGuiCraftConfirm) gui).ae2craftingeta$getJobTree();
+        if (job == null) {
+            return null;
+        }
+        int coProcessors = ((ContainerCraftConfirm) gui.inventorySlots).getCpuCoProcessors();
+        if (job != cachedJob || coProcessors != cachedCoProcessors) {
+            cachedPlan = EtaCalculator.forTree(job, coProcessors, ClientTimings::find);
+            cachedJob = job;
+            cachedCoProcessors = coProcessors;
+        }
+        return cachedPlan;
+    }
+
+    private EtaResult runningEta() {
+        if (ClientTimings.serverHasMod()) {
+            return ClientEtaState.mode == PacketEta.RUNNING ? ClientEtaState.result() : null;
+        }
+        long now = System.currentTimeMillis();
+        if (cachedRunning == null || now - runningComputedAt > RUNNING_REFRESH_MILLIS) {
+            cachedRunning = EtaCalculator.forCpuEntries(ClientCpuWatcher.counts(), ClientTimings::find);
+            runningComputedAt = now;
+        }
+        return cachedRunning;
     }
 }

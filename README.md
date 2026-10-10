@@ -29,6 +29,17 @@ Steps that have never run fall back to:
 - Crafting patterns: the Molecular Assembler speed (10 ticks per craft with no acceleration cards, 2 with 5).
 - Processing patterns: `unknownBatchSeconds` from the config (default 5 seconds).
 
+## Client-only use
+
+The mod works best installed on both the server and the client, but a client can use it on a server that doesn't have it. The client notices because the server never sends its timings at login, and then it learns on its own:
+
+- **Timings** come from the crafting status screen. AE2 sends the client each item's scheduled and in-progress counts while that screen is open, and the mod times batches from those changes. It only learns while you're watching a CPU.
+- **Plan screen estimates** use the crafting tree AE2 already sends for its tree view, so they work the same way as on a modded server, except that the number of machines per pattern isn't known.
+- **Running CPU estimates** are rougher: the client sees counts but not which pattern feeds which, so the estimate is the slowest single item rather than the whole chain.
+- **"Last crafted" tooltips** only update for crafts you chose to follow, because that's when AE2 tells the client the job's time.
+
+Client-learned timings are saved in `.minecraft/ae2craftingeta/<server address>.dat`.
+
 ## Known limits
 
 - Machines shared between several patterns are treated as if each pattern had its own.

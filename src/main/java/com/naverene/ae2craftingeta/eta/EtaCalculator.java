@@ -1,12 +1,14 @@
 package com.naverene.ae2craftingeta.eta;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 import net.minecraft.world.World;
 
@@ -26,6 +28,9 @@ import appeng.api.networking.crafting.ICraftingMedium;
 import appeng.api.networking.crafting.ICraftingPatternDetails;
 import appeng.api.storage.data.IAEStack;
 import appeng.api.storage.data.IItemList;
+import appeng.crafting.v2.CraftingJobV2;
+import appeng.crafting.v2.CraftingRequest;
+import appeng.crafting.v2.resolvers.CraftableItemResolver.CraftFromPatternTask;
 import appeng.me.cache.CraftingGridCache;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.tile.crafting.TileMolecularAssembler;
@@ -71,7 +76,36 @@ public final class EtaCalculator {
             // A pattern with several outputs shows up once per output; it runs as many times as its largest need.
             batches.merge(details, needed, Math::max);
         }
-        return estimate(batches, grid, coProcessors);
+        return estimate(batches, grid, coProcessors, serverLookup());
+    }
+
+    /**
+     * Estimate from the crafting tree AE2 sends to the client for the plan screen. Used when the server does not have
+     * this mod, so there is no grid to ask about machines.
+     */
+    public static EtaResult forTree(CraftingJobV2<?> job, int coProcessors, Function<IAEStack<?>, TimingStats> lookup) {
+        Map<ICraftingPatternDetails, Long> batches = new HashMap<>();
+        if (job.originalRequest != null) {
+            collectTree(job.originalRequest, batches, Collections.newSetFromMap(new IdentityHashMap<>()));
+        }
+        return estimate(batches, null, coProcessors, lookup);
+    }
+
+    private static void collectTree(CraftingRequest request, Map<ICraftingPatternDetails, Long> batches,
+        Set<CraftingRequest> seen) {
+        if (!seen.add(request)) {
+            return;
+        }
+        for (CraftingRequest.UsedResolverEntry entry : request.usedResolvers) {
+            if (entry.task instanceof CraftFromPatternTask task) {
+                if (task.getTotalCraftsDone() > 0) {
+                    batches.merge(task.pattern, task.getTotalCraftsDone(), Long::sum);
+                }
+                for (CraftingRequest child : task.getChildRequests()) {
+                    collectTree(child, batches, seen);
+                }
+            }
+        }
     }
 
     public static EtaResult forRunningCpu(CraftingCPUCluster cpu) {
@@ -87,14 +121,52 @@ public final class EtaCalculator {
         ICraftingGrid grid = cpu.getGrid() == null ? null
             : cpu.getGrid()
                 .getCache(ICraftingGrid.class);
-        return estimate(batches, grid, cpu.getCoProcessors());
+        return estimate(batches, grid, cpu.getCoProcessors(), serverLookup());
     }
 
-    static EtaResult estimate(Map<ICraftingPatternDetails, Long> batches, ICraftingGrid grid, int coProcessors) {
+    /**
+     * Rough estimate for a running CPU seen only from the client: AE2 sends per-item scheduled and in-progress counts
+     * but not which pattern feeds which, so this is the slowest single item rather than the full chain.
+     *
+     * @param counts per item, {scheduled, in progress}
+     */
+    public static EtaResult forCpuEntries(Map<IAEStack<?>, long[]> counts, Function<IAEStack<?>, TimingStats> lookup) {
+        double slowest = 0;
+        int unknown = 0;
+        int steps = 0;
+        for (Map.Entry<IAEStack<?>, long[]> e : counts.entrySet()) {
+            long scheduled = e.getValue()[0];
+            long active = e.getValue()[1];
+            if (scheduled <= 0 && active <= 0) {
+                continue;
+            }
+            steps++;
+            TimingStats stats = lookup.apply(e.getKey());
+            double ticks;
+            if (stats != null && stats.rateSamples > 0) {
+                double latency = stats.latencySamples > 0 ? stats.latencyTicks : 0;
+                ticks = latency + scheduled / stats.itemsPerTick;
+            } else if (stats != null && stats.latencySamples > 0) {
+                ticks = stats.latencyTicks;
+            } else {
+                ticks = Config.unknownBatchSeconds * 20.0;
+                unknown++;
+            }
+            slowest = Math.max(slowest, ticks);
+        }
+        return new EtaResult((long) Math.ceil(slowest), unknown, steps);
+    }
+
+    private static Function<IAEStack<?>, TimingStats> serverLookup() {
+        TimingStore store = TimingStore.get();
+        return store == null ? stack -> null : store.table()::find;
+    }
+
+    static EtaResult estimate(Map<ICraftingPatternDetails, Long> batches, ICraftingGrid grid, int coProcessors,
+        Function<IAEStack<?>, TimingStats> lookup) {
         if (batches.isEmpty()) {
             return new EtaResult(0, 0, 0);
         }
-        TimingStore store = TimingStore.get();
 
         // Which step produces each item, so ingredients can be linked to the steps that make them.
         Map<IAEStack<?>, Step> producers = new HashMap<>();
@@ -121,7 +193,7 @@ public final class EtaCalculator {
                     step.inputs.add(producer);
                 }
             }
-            if (!timeStep(step, store, grid)) {
+            if (!timeStep(step, lookup, grid)) {
                 unknown++;
             }
         }
@@ -136,13 +208,13 @@ public final class EtaCalculator {
     }
 
     /** Fills in latency and throughput for a step. Returns false when nothing was known and a guess was used. */
-    private static boolean timeStep(Step step, TimingStore store, ICraftingGrid grid) {
+    private static boolean timeStep(Step step, Function<IAEStack<?>, TimingStats> lookup, ICraftingGrid grid) {
         IAEStack<?> output = StackKeys.primaryOutput(step.details);
         long perBatch = output == null ? 1 : Math.max(1, output.getStackSize());
         List<ICraftingMedium> mediums = grid instanceof CraftingGridCache cache ? cache.getMediums(step.details) : null;
         int machines = mediums == null ? 1 : Math.max(1, mediums.size());
 
-        TimingStats stats = store == null || output == null ? null : store.find(output);
+        TimingStats stats = output == null ? null : lookup.apply(output);
         boolean known = true;
         if (stats != null && stats.latencySamples > 0) {
             step.latency = stats.latencyTicks;
