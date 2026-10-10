@@ -64,12 +64,12 @@ public class EtaServerUpdater {
             int coProcessors = confirm.getCpuCoProcessors();
             // Planning is the expensive part; reuse the estimate until the job or the selected CPU changes.
             if (previous != null && previous.container == container
-                    && previous.source == job
-                    && previous.coProcessors == coProcessors) {
+                && previous.source == job
+                && previous.coProcessors == coProcessors) {
                 return;
             }
             EtaResult eta = EtaCalculator
-                    .forPlan(job, grid.getCache(ICraftingGrid.class), player.worldObj, coProcessors);
+                .forPlan(job, grid.getCache(ICraftingGrid.class), player.worldObj, coProcessors);
             Sent sent = send(player, previous, PacketEta.PLAN, eta, container);
             sent.source = job;
             sent.coProcessors = coProcessors;
@@ -87,8 +87,8 @@ public class EtaServerUpdater {
 
     private Sent send(EntityPlayerMP player, Sent previous, int mode, EtaResult eta, Container container) {
         boolean same = previous != null && previous.mode == mode
-                && previous.container == container
-                && (eta == null ? previous.eta == null : eta.equals(previous.eta));
+            && previous.container == container
+            && (eta == null ? previous.eta == null : eta.equals(previous.eta));
         if (same) {
             return previous;
         }

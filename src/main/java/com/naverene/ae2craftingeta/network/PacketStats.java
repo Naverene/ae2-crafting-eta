@@ -56,8 +56,12 @@ public class PacketStats implements IMessage {
         NBTTagList list = new NBTTagList();
         for (Map.Entry<IAEStack<?>, TimingStats> e : stats.entrySet()) {
             NBTTagCompound entry = new NBTTagCompound();
-            entry.setTag("Stack", e.getKey().toNBTGeneric());
-            e.getValue().writeToNBT(entry);
+            entry.setTag(
+                "Stack",
+                e.getKey()
+                    .toNBTGeneric());
+            e.getValue()
+                .writeToNBT(entry);
             list.appendTag(entry);
         }
         NBTTagCompound tag = new NBTTagCompound();

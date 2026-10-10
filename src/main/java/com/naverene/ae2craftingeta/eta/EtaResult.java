@@ -16,8 +16,8 @@ public final class EtaResult {
     @Override
     public boolean equals(Object o) {
         return o instanceof EtaResult other && other.ticks == ticks
-                && other.unknownSteps == unknownSteps
-                && other.totalSteps == totalSteps;
+            && other.unknownSteps == unknownSteps
+            && other.totalSteps == totalSteps;
     }
 
     @Override

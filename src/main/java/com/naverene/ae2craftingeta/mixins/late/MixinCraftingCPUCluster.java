@@ -27,35 +27,36 @@ public abstract class MixinCraftingCPUCluster {
     protected long elapsedTime;
 
     @WrapOperation(
-            method = "executeCrafting",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lappeng/api/networking/crafting/ICraftingMedium;pushPattern(Lappeng/api/networking/crafting/ICraftingPatternDetails;Lnet/minecraft/inventory/InventoryCrafting;)Z"))
+        method = "executeCrafting",
+        at = @At(
+            value = "INVOKE",
+            target = "Lappeng/api/networking/crafting/ICraftingMedium;pushPattern(Lappeng/api/networking/crafting/ICraftingPatternDetails;Lnet/minecraft/inventory/InventoryCrafting;)Z"))
     private boolean ae2craftingeta$trackPush(ICraftingMedium medium, ICraftingPatternDetails details,
-            InventoryCrafting table, Operation<Boolean> original) {
+        InventoryCrafting table, Operation<Boolean> original) {
         boolean pushed = original.call(medium, details, table);
         if (pushed) {
-            CpuTracker.of(this).onPush(details);
+            CpuTracker.of(this)
+                .onPush(details);
         }
         return pushed;
     }
 
     @Inject(method = "recordReturnedOutputs", at = @At("HEAD"))
     private void ae2craftingeta$trackReturn(IAEStack<?> returnedStack, CallbackInfo ci) {
-        CpuTracker.of(this).onReturn(returnedStack);
+        CpuTracker.of(this)
+            .onReturn(returnedStack);
     }
 
     // After completeJob's early return for unfinished jobs, before AE2 resets the elapsed time.
-    @Inject(
-            method = "completeJob",
-            at = @At(value = "INVOKE", target = "Lappeng/core/AELog;isCraftingLogEnabled()Z"))
+    @Inject(method = "completeJob", at = @At(value = "INVOKE", target = "Lappeng/core/AELog;isCraftingLogEnabled()Z"))
     private void ae2craftingeta$trackComplete(CallbackInfo ci) {
         CpuTracker.of(this)
-                .onComplete(this.finalOutput.getOriginalOutput(), this.finalOutput.getOriginalCount(), this.elapsedTime);
+            .onComplete(this.finalOutput.getOriginalOutput(), this.finalOutput.getOriginalCount(), this.elapsedTime);
     }
 
     @Inject(method = "cancel", at = @At("HEAD"))
     private void ae2craftingeta$trackCancel(CallbackInfo ci) {
-        CpuTracker.of(this).onCancel();
+        CpuTracker.of(this)
+            .onCancel();
     }
 }

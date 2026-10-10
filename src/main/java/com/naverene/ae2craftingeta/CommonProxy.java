@@ -15,6 +15,8 @@ public class CommonProxy {
     }
 
     public void init(FMLInitializationEvent event) {
-        FMLCommonHandler.instance().bus().register(new EtaServerUpdater());
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new EtaServerUpdater());
     }
 }

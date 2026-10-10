@@ -26,18 +26,18 @@ public class TerminalTooltipHandler {
         if (stats.lastJobAmount > 0 && stats.lastJobMillis > 0) {
             double seconds = stats.lastJobMillis / 1000.0;
             event.toolTip.add(
-                    EnumChatFormatting.GRAY + "Last crafted "
-                            + stats.lastJobAmount
-                            + " in "
-                            + TimeFormat.format(seconds)
-                            + " (about "
-                            + TimeFormat.format(seconds / stats.lastJobAmount)
-                            + " each)");
+                EnumChatFormatting.GRAY + "Last crafted "
+                    + stats.lastJobAmount
+                    + " in "
+                    + TimeFormat.format(seconds)
+                    + " (about "
+                    + TimeFormat.format(seconds / stats.lastJobAmount)
+                    + " each)");
         } else if (stats.rateSamples > 0 && stats.itemsPerTick > 0) {
             event.toolTip.add(
-                    EnumChatFormatting.GRAY + "Crafts at about "
-                            + TimeFormat.format(1.0 / (stats.itemsPerTick * 20.0))
-                            + " each");
+                EnumChatFormatting.GRAY + "Crafts at about "
+                    + TimeFormat.format(1.0 / (stats.itemsPerTick * 20.0))
+                    + " each");
         }
     }
 }

@@ -25,7 +25,10 @@ public final class StackKeys {
         if (stack == null || stack.getItem() == null) {
             return null;
         }
-        return of(AEApi.instance().storage().createItemStack(stack));
+        return of(
+            AEApi.instance()
+                .storage()
+                .createItemStack(stack));
     }
 
     /** The output a pattern is tracked under: its first (main) output. */

@@ -54,7 +54,8 @@ public class TimingStore extends WorldSavedData {
         if (key == null || ticks <= 0) {
             return;
         }
-        stats.computeIfAbsent(key, k -> new TimingStats()).addLatency(ticks);
+        stats.computeIfAbsent(key, k -> new TimingStats())
+            .addLatency(ticks);
         markDirty();
     }
 
@@ -99,8 +100,12 @@ public class TimingStore extends WorldSavedData {
         NBTTagList list = new NBTTagList();
         for (Map.Entry<IAEStack<?>, TimingStats> e : stats.entrySet()) {
             NBTTagCompound entry = new NBTTagCompound();
-            entry.setTag("Stack", e.getKey().toNBTGeneric());
-            e.getValue().writeToNBT(entry);
+            entry.setTag(
+                "Stack",
+                e.getKey()
+                    .toNBTGeneric());
+            e.getValue()
+                .writeToNBT(entry);
             list.appendTag(entry);
         }
         tag.setTag("Entries", list);

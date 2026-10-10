@@ -18,9 +18,9 @@ public class LateMixinsLoader implements ILateMixinLoader {
     @Override
     public List<String> getMixins(Set<String> loadedMods) {
         return Arrays.asList(
-                "MixinCraftingCPUCluster",
-                "AccessorCraftingCPUCluster",
-                "AccessorTaskProgress",
-                "AccessorContainerCraftConfirm");
+            "MixinCraftingCPUCluster",
+            "AccessorCraftingCPUCluster",
+            "AccessorTaskProgress",
+            "AccessorContainerCraftConfirm");
     }
 }

@@ -16,8 +16,7 @@ import cpw.mods.fml.relauncher.Side;
 
 public final class Network {
 
-    public static final SimpleNetworkWrapper CHANNEL = NetworkRegistry.INSTANCE
-            .newSimpleChannel(AE2CraftingEta.MODID);
+    public static final SimpleNetworkWrapper CHANNEL = NetworkRegistry.INSTANCE.newSimpleChannel(AE2CraftingEta.MODID);
 
     private Network() {}
 

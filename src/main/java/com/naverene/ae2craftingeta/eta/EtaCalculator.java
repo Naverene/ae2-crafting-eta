@@ -46,7 +46,9 @@ public final class EtaCalculator {
     private EtaCalculator() {}
 
     public static EtaResult forPlan(ICraftingJob<?> job, ICraftingGrid grid, World world, int coProcessors) {
-        IItemList<IAEStack<?>> plan = AEApi.instance().storage().createAEStackList();
+        IItemList<IAEStack<?>> plan = AEApi.instance()
+            .storage()
+            .createAEStackList();
         job.populatePlan(plan);
 
         Map<ICraftingPatternDetails, Long> batches = new IdentityHashMap<>();
@@ -59,7 +61,8 @@ public final class EtaCalculator {
             if (patterns == null || patterns.isEmpty()) {
                 continue;
             }
-            ICraftingPatternDetails details = patterns.iterator().next();
+            ICraftingPatternDetails details = patterns.iterator()
+                .next();
             long perBatch = outputAmount(details, stack);
             if (perBatch <= 0) {
                 continue;
@@ -74,13 +77,16 @@ public final class EtaCalculator {
     public static EtaResult forRunningCpu(CraftingCPUCluster cpu) {
         Map<ICraftingPatternDetails, Long> batches = new IdentityHashMap<>();
         for (Map.Entry<ICraftingPatternDetails, CraftingCPUCluster.TaskProgress> e : ((AccessorCraftingCPUCluster) cpu)
-                .ae2craftingeta$getTasks().entrySet()) {
+            .ae2craftingeta$getTasks()
+            .entrySet()) {
             long remaining = ((AccessorTaskProgress) e.getValue()).ae2craftingeta$getValue();
             if (remaining > 0) {
                 batches.put(e.getKey(), remaining);
             }
         }
-        ICraftingGrid grid = cpu.getGrid() == null ? null : cpu.getGrid().getCache(ICraftingGrid.class);
+        ICraftingGrid grid = cpu.getGrid() == null ? null
+            : cpu.getGrid()
+                .getCache(ICraftingGrid.class);
         return estimate(batches, grid, cpu.getCoProcessors());
     }
 
@@ -96,7 +102,8 @@ public final class EtaCalculator {
         for (Map.Entry<ICraftingPatternDetails, Long> e : batches.entrySet()) {
             Step step = new Step(e.getKey(), e.getValue());
             steps.add(step);
-            for (IAEStack<?> out : e.getKey().getCondensedAEOutputs()) {
+            for (IAEStack<?> out : e.getKey()
+                .getCondensedAEOutputs()) {
                 IAEStack<?> key = StackKeys.of(out);
                 if (key != null) {
                     producers.putIfAbsent(key, step);
@@ -132,8 +139,7 @@ public final class EtaCalculator {
     private static boolean timeStep(Step step, TimingStore store, ICraftingGrid grid) {
         IAEStack<?> output = StackKeys.primaryOutput(step.details);
         long perBatch = output == null ? 1 : Math.max(1, output.getStackSize());
-        List<ICraftingMedium> mediums = grid instanceof CraftingGridCache cache ? cache.getMediums(step.details)
-                : null;
+        List<ICraftingMedium> mediums = grid instanceof CraftingGridCache cache ? cache.getMediums(step.details) : null;
         int machines = mediums == null ? 1 : Math.max(1, mediums.size());
 
         TimingStats stats = store == null || output == null ? null : store.find(output);
