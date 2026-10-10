@@ -1,0 +1,23 @@
+{
+  "modListVersion": 2,
+  "modList": [
+    {
+      "modid": "${modId}",
+      "name": "${modName}",
+      "description": "Learns how long each AE2 pattern takes and estimates how long crafting jobs will take.",
+      "version": "${modVersion}",
+      "mcversion": "${minecraftVersion}",
+      "url": "https://github.com/Naverene/ae2-crafting-eta",
+      "updateUrl": "",
+      "authorList": ["Naverene"],
+      "credits": "",
+      "logoFile": "",
+      "screenshots": [],
+      "parent": "",
+      "requiredMods": ["appliedenergistics2"],
+      "dependencies": ["appliedenergistics2"],
+      "dependants": [],
+      "useDependencyInformation": true
+    }
+  ]
+}

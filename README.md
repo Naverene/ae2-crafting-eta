@@ -43,3 +43,14 @@ Steps that have never run fall back to:
 ```
 
 The jar is written to `build/libs/`. Dependencies come from the GTNH Maven, which the GitHub Actions build can reach.
+
+## Releasing
+
+Push a tag and GitHub Actions builds the jar and attaches it to a GitHub release with generated notes:
+
+```
+git tag 1.0.0
+git push origin 1.0.0
+```
+
+The tag becomes the mod version. A tag ending in `-snapshot` is marked as a pre-release. Nothing is uploaded to CurseForge, Modrinth or Maven.

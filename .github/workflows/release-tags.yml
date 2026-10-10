@@ -1,0 +1,14 @@
+name: Release tagged build
+
+on:
+  push:
+    tags: [ '*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  release-tags:
+    uses: GTNewHorizons/GTNH-Actions-Workflows/.github/workflows/release-tags.yml@master
+    # No secrets are passed on purpose: the jar goes to a GitHub release only. Without CURSEFORGE_TOKEN,
+    # MODRINTH_TOKEN or MAVEN_USER (and with no project ids in gradle.properties) the publish steps do nothing.

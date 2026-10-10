@@ -1,0 +1,6 @@
+// Versions match the GTNH 2.9.0-beta-3 modpack manifest.
+dependencies {
+    devOnlyNonPublishable("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-1050-GTNH:dev")
+    // AE2's GUI classes implement NEI interfaces, so NEI is needed to compile against them.
+    devOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughItems:2.8.130-GTNH:dev")
+}
