@@ -1,0 +1,44 @@
+# Posts the release jar to Discord once the release workflow has published it.
+# Needs the DISCORD_WEBHOOK repository secret (a Discord channel webhook URL).
+
+name: Post release to Discord
+
+on:
+  workflow_run:
+    workflows: [ "Release tagged build" ]
+    types: [ completed ]
+
+permissions:
+  contents: read
+
+jobs:
+  discord:
+    # Tag pushes only; head_branch is the tag name for those runs.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.event.workflow_run.head_branch }}
+      WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+    steps:
+      - name: Download the release jar
+        run: |
+          mkdir dist
+          gh release download "$TAG" --dir dist --pattern '*.jar'
+          # Players only need the plain jar, not the -dev, -sources or -api ones.
+          rm -f dist/*-dev.jar dist/*-dev-preshadow.jar dist/*-sources.jar dist/*-api.jar
+          ls -l dist
+
+      - name: Post to Discord
+        run: |
+          url="https://github.com/${GH_REPO}/releases/tag/${TAG}"
+          for jar in dist/*.jar; do
+            msg="**${GH_REPO#*/}** ${TAG}"
+            # Webhook uploads are capped at 10 MB, so a larger jar gets a link only.
+            if (( $(stat -c %s "$jar") > 9500000 )); then
+              curl -fsS -F "payload_json=$(jq -nc --arg c "$msg (jar too big for Discord: $url)" '{content:$c}')" "$WEBHOOK"
+            else
+              curl -fsS -F "payload_json=$(jq -nc --arg c "$msg" '{content:$c}')" -F "files[0]=@${jar}" "$WEBHOOK"
+            fi
+          done
