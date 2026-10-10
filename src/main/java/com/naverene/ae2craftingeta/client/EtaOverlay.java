@@ -53,11 +53,27 @@ public class EtaOverlay {
         }
         AEBaseGui gui = (AEBaseGui) event.gui;
         String text = label + TimeFormat.format(eta.ticks / 20.0);
-        if (eta.unknownSteps > 0) {
-            text += " (" + eta.unknownSteps + " of " + eta.totalSteps + " steps not measured yet)";
-        }
+        String note = eta.unknownSteps > 0
+            ? "(" + eta.unknownSteps + " of " + eta.totalSteps + " steps not measured yet)"
+            : null;
         FontRenderer font = Minecraft.getMinecraft().fontRenderer;
-        font.drawStringWithShadow(text, gui.getGuiLeft() + 2, gui.getGuiTop() - 10, COLOR);
+        // AE2 centers its windows, so the window's middle is the screen's middle and its width follows from guiLeft.
+        int centerX = gui.width / 2;
+        int windowWidth = gui.width - 2 * gui.getGuiLeft();
+        int y = gui.getGuiTop() - 10;
+        if (note != null && font.getStringWidth(text + " " + note) <= windowWidth) {
+            text += " " + note;
+            note = null;
+        }
+        if (note != null) {
+            drawCentered(font, note, centerX, y);
+            y = Math.max(0, y - 10);
+        }
+        drawCentered(font, text, centerX, y);
+    }
+
+    private static void drawCentered(FontRenderer font, String text, int centerX, int y) {
+        font.drawStringWithShadow(text, centerX - font.getStringWidth(text) / 2, y, COLOR);
     }
 
     private EtaResult planEta(GuiCraftConfirm gui) {
