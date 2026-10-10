@@ -19,7 +19,7 @@ public class TerminalTooltipHandler {
         if (!Config.showTerminalTooltips || !(Minecraft.getMinecraft().currentScreen instanceof GuiMEMonitorable)) {
             return;
         }
-        TimingStats stats = ClientStatsCache.find(StackKeys.of(event.itemStack));
+        TimingStats stats = ClientTimings.find(StackKeys.of(event.itemStack));
         if (stats == null) {
             return;
         }

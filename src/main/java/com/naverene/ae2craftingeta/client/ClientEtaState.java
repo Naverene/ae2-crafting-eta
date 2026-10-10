@@ -1,5 +1,7 @@
 package com.naverene.ae2craftingeta.client;
 
+import com.naverene.ae2craftingeta.eta.EtaResult;
+
 /** Latest estimate from the server for the open crafting screen. Plain Java so the dedicated server can load it. */
 public final class ClientEtaState {
 
@@ -15,5 +17,9 @@ public final class ClientEtaState {
         ClientEtaState.unknownSteps = unknownSteps;
         ClientEtaState.totalSteps = totalSteps;
         ClientEtaState.mode = mode;
+    }
+
+    public static EtaResult result() {
+        return new EtaResult(ticks, unknownSteps, totalSteps);
     }
 }

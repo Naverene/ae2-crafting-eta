@@ -30,7 +30,8 @@ public final class Network {
     }
 
     public static void sendAllStats(TimingStore store, EntityPlayerMP player) {
-        Map<IAEStack<?>, TimingStats> all = store.all();
+        Map<IAEStack<?>, TimingStats> all = store.table()
+            .all();
         CHANNEL.sendTo(new PacketStats(all, true), player);
     }
 }
