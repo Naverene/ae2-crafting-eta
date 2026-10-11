@@ -32,6 +32,11 @@ public class EtaOverlay {
     private EtaResult cachedRunning;
     private long runningComputedAt;
 
+    // The running estimate only changes when the CPU makes progress, so between changes it is counted down here.
+    private Object countdownGui;
+    private EtaResult countdownEstimate;
+    private long countdownEndMillis;
+
     @SubscribeEvent
     public void onDrawScreen(GuiScreenEvent.DrawScreenEvent.Post event) {
         if (!Config.showCraftingScreenEta) {
@@ -43,7 +48,7 @@ public class EtaOverlay {
             label = "Estimated time: ";
             eta = planEta(confirm);
         } else if (event.gui instanceof GuiCraftingCPU) {
-            label = "Time remaining: about ";
+            label = "Time remaining: ";
             eta = runningEta();
         } else {
             return;
@@ -52,7 +57,8 @@ public class EtaOverlay {
             return;
         }
         AEBaseGui gui = (AEBaseGui) event.gui;
-        String text = label + TimeFormat.format(eta.ticks / 20.0);
+        String text = label
+            + (event.gui instanceof GuiCraftingCPU ? countdown(event.gui, eta) : TimeFormat.format(eta.ticks / 20.0));
         String note = eta.unknownSteps > 0
             ? "(" + eta.unknownSteps + " of " + eta.totalSteps + " steps not measured yet)"
             : null;
@@ -74,6 +80,18 @@ public class EtaOverlay {
 
     private static void drawCentered(FontRenderer font, String text, int centerX, int y) {
         font.drawStringWithShadow(text, centerX - font.getStringWidth(text) / 2, y, COLOR);
+    }
+
+    /** Seconds left on the countdown, restarted from the latest estimate whenever that estimate changes. */
+    private String countdown(Object gui, EtaResult eta) {
+        long now = System.currentTimeMillis();
+        if (gui != countdownGui || !eta.equals(countdownEstimate)) {
+            countdownGui = gui;
+            countdownEstimate = eta;
+            countdownEndMillis = now + eta.ticks * 50;
+        }
+        long seconds = (countdownEndMillis - now + 999) / 1000;
+        return seconds > 0 ? "about " + TimeFormat.formatCountdown(seconds) : "almost done";
     }
 
     private EtaResult planEta(GuiCraftConfirm gui) {
