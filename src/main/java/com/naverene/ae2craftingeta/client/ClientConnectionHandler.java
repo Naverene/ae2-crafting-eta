@@ -22,5 +22,6 @@ public class ClientConnectionHandler {
     @SubscribeEvent
     public void onGuiOpen(GuiOpenEvent event) {
         ClientTimings.saveLocal();
+        ClientMachineState.clear();
     }
 }

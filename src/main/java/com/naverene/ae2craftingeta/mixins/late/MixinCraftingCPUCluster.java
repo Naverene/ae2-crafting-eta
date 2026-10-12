@@ -36,7 +36,7 @@ public abstract class MixinCraftingCPUCluster {
         boolean pushed = original.call(medium, details, table);
         if (pushed) {
             CpuTracker.of(this)
-                .onPush(details);
+                .onPush(details, medium);
         }
         return pushed;
     }
