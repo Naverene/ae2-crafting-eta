@@ -43,6 +43,27 @@ public class CpuTracker {
         return TRACKERS.computeIfAbsent(cpu, k -> new CpuTracker());
     }
 
+    /** The CPU, other than the one given, that has a batch in flight through this interface, or null. */
+    public static Object cpuUsing(ICraftingMedium medium, Object except) {
+        for (Map.Entry<Object, CpuTracker> e : TRACKERS.entrySet()) {
+            if (e.getKey() == except) {
+                continue;
+            }
+            for (Set<ICraftingMedium> used : e.getValue().mediums.values()) {
+                if (used.contains(medium)) {
+                    return e.getKey();
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Whether a batch making this output is in a machine right now. */
+    public boolean isInFlight(IAEStack<?> key) {
+        ArrayDeque<Batch> queue = inFlight.get(key);
+        return queue != null && !queue.isEmpty();
+    }
+
     public void onPush(ICraftingPatternDetails details, ICraftingMedium medium) {
         IAEStack<?> output = StackKeys.primaryOutput(details);
         IAEStack<?> key = StackKeys.of(output);

@@ -10,12 +10,15 @@ public final class MachineStatus {
     public final int progress;
     public final int maxProgress;
     public final boolean active;
+    /** Why the machine stopped, if it was forced to (power loss and the like), otherwise null. */
+    public final String shutdownReason;
 
-    public MachineStatus(ItemStack machine, int progress, int maxProgress, boolean active) {
+    public MachineStatus(ItemStack machine, int progress, int maxProgress, boolean active, String shutdownReason) {
         this.machine = machine;
         this.progress = progress;
         this.maxProgress = maxProgress;
         this.active = active;
+        this.shutdownReason = shutdownReason;
     }
 
     public boolean isWorking() {

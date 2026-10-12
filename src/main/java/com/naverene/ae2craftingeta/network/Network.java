@@ -23,7 +23,7 @@ public final class Network {
     public static void init() {
         CHANNEL.registerMessage(PacketEta.Handler.class, PacketEta.class, 0, Side.CLIENT);
         CHANNEL.registerMessage(PacketStats.Handler.class, PacketStats.class, 1, Side.CLIENT);
-        CHANNEL.registerMessage(PacketMachines.Handler.class, PacketMachines.class, 2, Side.CLIENT);
+        CHANNEL.registerMessage(PacketCpuStatus.Handler.class, PacketCpuStatus.class, 2, Side.CLIENT);
     }
 
     public static void sendStatsToAll(IAEStack<?> key, TimingStats stats) {

@@ -9,6 +9,7 @@ Built against the versions in GTNH 2.9.0-beta-3 (AE2 `rv3-beta-1050-GTNH`).
 - **Crafting plan screen:** "Estimated time: 4m 12s" above the window, updated when you pick a different CPU.
 - **Crafting status screen:** "Time remaining: about 3m 5s" for a busy CPU, counting down each second.
 - **Machine status:** hover an item that is crafting on the status screen to see what the GregTech machines making it are doing, for example "Macerator: 45%, 3.2s left" or "idle". Needs the mod on the server.
+- **Why it's stuck:** the same tooltip on a waiting item says what it's waiting for, for example "Waiting for Tin Dust to be made first", "Macerator is busy with another job: making 64 Tin Plate on Main", or "Macerator has shut down: no power". Needs the mod on the server.
 - **ME terminal tooltips:** "Last crafted 64 in 2m 10s (about 2.0s each)" for items that have been the target of a finished job.
 
 If some steps of a plan have never run, the estimate says how many, e.g. "(3 of 12 steps not measured yet)".

@@ -13,7 +13,8 @@ import com.naverene.ae2craftingeta.data.TimingStore;
 import com.naverene.ae2craftingeta.mixins.late.AccessorContainerCraftConfirm;
 import com.naverene.ae2craftingeta.network.Network;
 import com.naverene.ae2craftingeta.network.PacketEta;
-import com.naverene.ae2craftingeta.network.PacketMachines;
+import com.naverene.ae2craftingeta.machine.BlockedReasons;
+import com.naverene.ae2craftingeta.network.PacketCpuStatus;
 
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingGrid;
@@ -84,9 +85,10 @@ public class EtaServerUpdater {
             send(player, previous, PacketEta.RUNNING, EtaCalculator.forRunningCpu(cpu), container);
             // Machine progress changes every tick, so this goes out on every update rather than only on change.
             Network.CHANNEL.sendTo(
-                new PacketMachines(
+                new PacketCpuStatus(
                     CpuTracker.of(cpu)
-                        .machines()),
+                        .machines(),
+                    BlockedReasons.forCpu(cpu)),
                 player);
         } else if (previous != null && previous.mode != PacketEta.NONE) {
             send(player, previous, PacketEta.NONE, null, container);

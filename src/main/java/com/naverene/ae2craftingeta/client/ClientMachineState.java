@@ -15,23 +15,36 @@ import com.naverene.ae2craftingeta.machine.MachineStatus;
 public final class ClientMachineState {
 
     private static volatile Map<ItemStack, List<MachineStatus>> machines = Collections.emptyMap();
+    private static volatile Map<ItemStack, List<String>> blocked = Collections.emptyMap();
 
     private ClientMachineState() {}
 
-    public static void set(Map<ItemStack, List<MachineStatus>> latest) {
-        machines = latest;
+    public static void set(Map<ItemStack, List<MachineStatus>> latestMachines,
+        Map<ItemStack, List<String>> latestBlocked) {
+        machines = latestMachines;
+        blocked = latestBlocked;
     }
 
     public static void clear() {
         machines = Collections.emptyMap();
+        blocked = Collections.emptyMap();
     }
 
     /** Machines working on this item, or an empty list. */
-    public static List<MachineStatus> forItem(ItemStack item) {
+    public static List<MachineStatus> machinesFor(ItemStack item) {
+        return find(machines, item);
+    }
+
+    /** Why this item is waiting, or an empty list. */
+    public static List<String> blockedFor(ItemStack item) {
+        return find(blocked, item);
+    }
+
+    private static <T> List<T> find(Map<ItemStack, List<T>> map, ItemStack item) {
         if (item == null) {
             return Collections.emptyList();
         }
-        for (Map.Entry<ItemStack, List<MachineStatus>> e : machines.entrySet()) {
+        for (Map.Entry<ItemStack, List<T>> e : map.entrySet()) {
             if (ItemStack.areItemStacksEqual(withSize1(e.getKey()), withSize1(item))) {
                 return e.getValue();
             }

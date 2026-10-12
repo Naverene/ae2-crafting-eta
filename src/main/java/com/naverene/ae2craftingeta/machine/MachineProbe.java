@@ -29,6 +29,9 @@ public final class MachineProbe {
     private static Method isActive;
     private static Method getMetaTileEntity;
     private static Method getMetaTileId;
+    private static Method wasShutdown;
+    private static Method getLastShutDownReason;
+    private static Method getDisplayString;
 
     static {
         try {
@@ -41,6 +44,17 @@ public final class MachineProbe {
             gtHatch = Class.forName("gregtech.api.metatileentity.implementations.MTEHatch");
         } catch (ReflectiveOperationException | LinkageError e) {
             gtTile = null;
+        }
+        if (gtTile != null) {
+            try {
+                wasShutdown = gtTile.getMethod("wasShutdown");
+                getLastShutDownReason = gtTile.getMethod("getLastShutDownReason");
+                getDisplayString = Class.forName("gregtech.api.util.IMachineMessage")
+                    .getMethod("getDisplayString");
+            } catch (ReflectiveOperationException | LinkageError e) {
+                // Older GregTech without shutdown reasons; progress still works.
+                wasShutdown = null;
+            }
         }
     }
 
@@ -73,6 +87,16 @@ public final class MachineProbe {
         return found;
     }
 
+    private static String shutdownReason(TileEntity tile) throws ReflectiveOperationException {
+        if (wasShutdown == null || !(Boolean) wasShutdown.invoke(tile)) {
+            return null;
+        }
+        Object reason = getLastShutDownReason.invoke(tile);
+        Object text = reason == null ? null : getDisplayString.invoke(reason);
+        return text == null || text.toString()
+            .isEmpty() ? "shut down" : text.toString();
+    }
+
     private static MachineStatus read(TileEntity tile) {
         if (!gtTile.isInstance(tile)) {
             return null;
@@ -88,7 +112,8 @@ public final class MachineProbe {
                 new ItemStack(tile.getBlockType(), 1, id),
                 (Integer) getProgress.invoke(tile),
                 (Integer) getMaxProgress.invoke(tile),
-                (Boolean) isActive.invoke(tile));
+                (Boolean) isActive.invoke(tile),
+                shutdownReason(tile));
         } catch (ReflectiveOperationException | RuntimeException e) {
             AE2CraftingEta.LOG.debug("Could not read machine progress", e);
             return null;

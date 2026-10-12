@@ -9,23 +9,35 @@ import com.naverene.ae2craftingeta.machine.MachineStatus;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.api.storage.data.IAEStack;
 
-/** Extra tooltip lines on the crafting status screen saying what each machine making the item is doing. */
+/**
+ * Extra tooltip lines on the crafting status screen: what each machine making the item is doing, and why it is waiting
+ * when it is stuck.
+ */
 public final class MachineTooltip {
 
     private static final int MAX_LINES = 4;
 
     private MachineTooltip() {}
 
-    /** Lines to append, each starting with a newline, or null when no machine is known for this item. */
+    /** Lines to append, each starting with a newline, or null when there is nothing to add for this item. */
     public static String lines(IAEStack<?> stack) {
         if (!(stack instanceof IAEItemStack item)) {
             return null;
         }
-        List<MachineStatus> machines = ClientMachineState.forItem(item.getItemStack());
-        if (machines.isEmpty()) {
+        List<MachineStatus> machines = ClientMachineState.machinesFor(item.getItemStack());
+        List<String> blocked = ClientMachineState.blockedFor(item.getItemStack());
+        if (machines.isEmpty() && blocked.isEmpty()) {
             return null;
         }
         StringBuilder out = new StringBuilder();
+        for (String reason : blocked) {
+            out.append('\n')
+                .append(EnumChatFormatting.YELLOW)
+                .append(reason);
+        }
+        if (machines.isEmpty()) {
+            return out.toString();
+        }
         out.append('\n')
             .append(EnumChatFormatting.GRAY)
             .append("Machines:");
@@ -50,6 +62,9 @@ public final class MachineTooltip {
     }
 
     private static String describe(MachineStatus status) {
+        if (status.shutdownReason != null) {
+            return "shut down (" + status.shutdownReason + ")";
+        }
         if (!status.isWorking()) {
             return "idle";
         }

@@ -18,20 +18,29 @@ import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import io.netty.buffer.ByteBuf;
 
-/** What the machines are doing for each item in progress on the crafting status screen the player has open. */
-public class PacketMachines implements IMessage {
+/**
+ * For the crafting status screen the player has open: what the machines are doing for each item in progress, and why
+ * waiting items are stuck. Keyed by item; fluid outputs are left out because the screen's tooltip is keyed by item.
+ */
+public class PacketCpuStatus implements IMessage {
 
     private static final int MAX_MACHINES_PER_ITEM = 8;
 
     private final Map<ItemStack, List<MachineStatus>> machines = new LinkedHashMap<>();
+    private final Map<ItemStack, List<String>> blocked = new LinkedHashMap<>();
 
-    public PacketMachines() {}
+    public PacketCpuStatus() {}
 
-    public PacketMachines(Map<IAEStack<?>, List<MachineStatus>> byOutput) {
-        for (Map.Entry<IAEStack<?>, List<MachineStatus>> e : byOutput.entrySet()) {
-            // Machines making fluids are skipped; the status screen tooltip is keyed by item.
+    public PacketCpuStatus(Map<IAEStack<?>, List<MachineStatus>> machinesByOutput,
+        Map<IAEStack<?>, List<String>> blockedByOutput) {
+        for (Map.Entry<IAEStack<?>, List<MachineStatus>> e : machinesByOutput.entrySet()) {
             if (e.getKey() instanceof IAEItemStack item) {
                 machines.put(item.getItemStack(), e.getValue());
+            }
+        }
+        for (Map.Entry<IAEStack<?>, List<String>> e : blockedByOutput.entrySet()) {
+            if (e.getKey() instanceof IAEItemStack item) {
+                blocked.put(item.getItemStack(), e.getValue());
             }
         }
     }
@@ -48,10 +57,23 @@ public class PacketMachines implements IMessage {
                 int progress = buf.readInt();
                 int maxProgress = buf.readInt();
                 boolean active = buf.readBoolean();
-                list.add(new MachineStatus(machine, progress, maxProgress, active));
+                String shutdown = buf.readBoolean() ? ByteBufUtils.readUTF8String(buf) : null;
+                list.add(new MachineStatus(machine, progress, maxProgress, active, shutdown));
             }
             if (output != null) {
                 machines.put(output, list);
+            }
+        }
+        int waiting = buf.readShort();
+        for (int i = 0; i < waiting; i++) {
+            ItemStack output = ByteBufUtils.readItemStack(buf);
+            int count = buf.readByte();
+            List<String> reasons = new ArrayList<>(count);
+            for (int j = 0; j < count; j++) {
+                reasons.add(ByteBufUtils.readUTF8String(buf));
+            }
+            if (output != null) {
+                blocked.put(output, reasons);
             }
         }
     }
@@ -70,15 +92,29 @@ public class PacketMachines implements IMessage {
                 buf.writeInt(status.progress);
                 buf.writeInt(status.maxProgress);
                 buf.writeBoolean(status.active);
+                buf.writeBoolean(status.shutdownReason != null);
+                if (status.shutdownReason != null) {
+                    ByteBufUtils.writeUTF8String(buf, status.shutdownReason);
+                }
+            }
+        }
+        buf.writeShort(blocked.size());
+        for (Map.Entry<ItemStack, List<String>> e : blocked.entrySet()) {
+            ByteBufUtils.writeItemStack(buf, e.getKey());
+            buf.writeByte(
+                e.getValue()
+                    .size());
+            for (String reason : e.getValue()) {
+                ByteBufUtils.writeUTF8String(buf, reason);
             }
         }
     }
 
-    public static class Handler implements IMessageHandler<PacketMachines, IMessage> {
+    public static class Handler implements IMessageHandler<PacketCpuStatus, IMessage> {
 
         @Override
-        public IMessage onMessage(PacketMachines message, MessageContext ctx) {
-            ClientMachineState.set(message.machines);
+        public IMessage onMessage(PacketCpuStatus message, MessageContext ctx) {
+            ClientMachineState.set(message.machines, message.blocked);
             return null;
         }
     }
