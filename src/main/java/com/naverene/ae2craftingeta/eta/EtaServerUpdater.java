@@ -8,9 +8,12 @@ import net.minecraft.inventory.Container;
 import net.minecraft.server.MinecraftServer;
 
 import com.naverene.ae2craftingeta.AE2CraftingEta;
+import com.naverene.ae2craftingeta.data.CpuTracker;
 import com.naverene.ae2craftingeta.data.TimingStore;
+import com.naverene.ae2craftingeta.machine.BlockedReasons;
 import com.naverene.ae2craftingeta.mixins.late.AccessorContainerCraftConfirm;
 import com.naverene.ae2craftingeta.network.Network;
+import com.naverene.ae2craftingeta.network.PacketCpuStatus;
 import com.naverene.ae2craftingeta.network.PacketEta;
 
 import appeng.api.networking.IGrid;
@@ -79,7 +82,15 @@ public class EtaServerUpdater {
                 send(player, previous, PacketEta.NONE, null, container);
                 return;
             }
-            send(player, previous, PacketEta.RUNNING, EtaCalculator.forRunningCpu(cpu), container);
+            int mode = BlockedReasons.waitingOnOtherJob(cpu) ? PacketEta.PAUSED : PacketEta.RUNNING;
+            send(player, previous, mode, EtaCalculator.forRunningCpu(cpu), container);
+            // Machine progress changes every tick, so this goes out on every update rather than only on change.
+            Network.CHANNEL.sendTo(
+                new PacketCpuStatus(
+                    CpuTracker.of(cpu)
+                        .machines(),
+                    BlockedReasons.forCpu(cpu)),
+                player);
         } else if (previous != null && previous.mode != PacketEta.NONE) {
             send(player, previous, PacketEta.NONE, null, container);
         }

@@ -14,9 +14,12 @@ import net.minecraft.world.World;
 
 import com.google.common.collect.ImmutableCollection;
 import com.naverene.ae2craftingeta.Config;
+import com.naverene.ae2craftingeta.data.CpuTracker;
 import com.naverene.ae2craftingeta.data.StackKeys;
 import com.naverene.ae2craftingeta.data.TimingStats;
 import com.naverene.ae2craftingeta.data.TimingStore;
+import com.naverene.ae2craftingeta.machine.MachineStatus;
+import com.naverene.ae2craftingeta.machine.MachineTimes;
 import com.naverene.ae2craftingeta.mixins.late.AccessorCraftingCPUCluster;
 import com.naverene.ae2craftingeta.mixins.late.AccessorTaskProgress;
 
@@ -121,7 +124,23 @@ public final class EtaCalculator {
         ICraftingGrid grid = cpu.getGrid() == null ? null
             : cpu.getGrid()
                 .getCache(ICraftingGrid.class);
-        return estimate(batches, grid, cpu.getCoProcessors(), serverLookup());
+        EtaResult queued = estimate(batches, grid, cpu.getCoProcessors(), serverLookup());
+
+        // Batches already in a machine are not in the task list; the machine itself says how long they have left.
+        long inMachines = 0;
+        int busyOutputs = 0;
+        for (List<MachineStatus> statuses : CpuTracker.of(cpu)
+            .machines()
+            .values()) {
+            busyOutputs++;
+            for (MachineStatus status : statuses) {
+                inMachines = Math.max(inMachines, status.ticksLeft());
+            }
+        }
+        if (inMachines <= queued.ticks) {
+            return queued;
+        }
+        return new EtaResult(inMachines, queued.unknownSteps, Math.max(queued.totalSteps, busyOutputs));
     }
 
     /**
@@ -220,6 +239,9 @@ public final class EtaCalculator {
             step.latency = stats.latencyTicks;
         } else if (step.details.isCraftable()) {
             step.latency = assemblerTicks(mediums);
+        } else if (MachineTimes.get(StackKeys.of(output)) > 0) {
+            // Not measured yet, but a machine was seen running this recipe.
+            step.latency = MachineTimes.get(StackKeys.of(output));
         } else if (stats != null && stats.rateSamples > 0) {
             step.latency = perBatch / stats.itemsPerTick;
         } else {

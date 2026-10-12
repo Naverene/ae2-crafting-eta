@@ -16,6 +16,8 @@ public class PacketEta implements IMessage {
     public static final int PLAN = 1;
     /** Crafting status screen of a busy CPU. */
     public static final int RUNNING = 2;
+    /** Crafting status screen of a busy CPU that is stalled behind another CPU's job. */
+    public static final int PAUSED = 3;
 
     private int mode;
     private long ticks;

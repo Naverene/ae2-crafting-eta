@@ -7,7 +7,9 @@ Built against the versions in GTNH 2.9.0-beta-3 (AE2 `rv3-beta-1050-GTNH`).
 ## What it shows
 
 - **Crafting plan screen:** "Estimated time: 4m 12s" above the window, updated when you pick a different CPU.
-- **Crafting status screen:** "Time remaining: about 3m 5s" for a busy CPU.
+- **Crafting status screen:** "Time remaining: about 3m 5s" for a busy CPU, counting down each second.
+- **Machine status:** hover an item that is crafting on the status screen to see what the GregTech machines making it are doing, for example "Macerator: 45%, 3.2s left" or "idle". Needs the mod on the server.
+- **Why it's stuck:** the same tooltip on a waiting item says what it's waiting for, for example "Waiting for Tin Dust to be made first", "Macerator is busy with another job: making 64 Tin Plate on Main", or "Macerator has shut down: no power". Needs the mod on the server.
 - **ME terminal tooltips:** "Last crafted 64 in 2m 10s (about 2.0s each)" for items that have been the target of a finished job.
 
 If some steps of a plan have never run, the estimate says how many, e.g. "(3 of 12 steps not measured yet)".
@@ -27,7 +29,7 @@ The estimate treats each pattern as a step: it can start once each ingredient st
 Steps that have never run fall back to:
 
 - Crafting patterns: the Molecular Assembler speed (10 ticks per craft with no acceleration cards, 2 with 5).
-- Processing patterns: `unknownBatchSeconds` from the config (default 5 seconds).
+- Processing patterns: the recipe time of a GregTech machine seen running it (remembered until the server restarts), otherwise `unknownBatchSeconds` from the config (default 5 seconds).
 
 ## Client-only use
 
@@ -44,7 +46,7 @@ Client-learned timings are saved in `.minecraft/ae2craftingeta/<server address>.
 
 - Machines shared between several patterns are treated as if each pattern had its own.
 - Throughput measured while a step was starved of inputs reads lower than the machine could manage, so estimates lean long.
-- The remaining time on a running CPU only changes when batches are pushed or return, so it can sit still during a long machine step.
+- Machine status follows an ME Interface to the GregTech machine next to it, through a smart input hatch or bus (crafting input hatches included) to its multiblock controller, and one level into a subnet (its interfaces and export buses). A plain input bus has no link to its controller, so a multiblock fed only through one isn't read. Buffer chests show how full they are.
 - Tooltips only appear in AE2's own terminals, not in Wireless Crafting Terminal.
 
 ## Building

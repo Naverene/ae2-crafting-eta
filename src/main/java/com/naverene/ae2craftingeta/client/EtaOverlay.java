@@ -85,6 +85,12 @@ public class EtaOverlay {
     /** Seconds left on the countdown, restarted from the latest estimate whenever that estimate changes. */
     private String countdown(Object gui, EtaResult eta) {
         long now = System.currentTimeMillis();
+        if (ClientTimings.serverHasMod() && ClientEtaState.mode == PacketEta.PAUSED) {
+            // Hold the clock; it restarts from the latest estimate once the job moves again.
+            countdownEstimate = null;
+            return "about " + TimeFormat.formatCountdown(Math.max(1, eta.ticks / 20))
+                + ", paused: waiting on another job";
+        }
         if (gui != countdownGui || !eta.equals(countdownEstimate)) {
             countdownGui = gui;
             countdownEstimate = eta;
@@ -113,7 +119,8 @@ public class EtaOverlay {
 
     private EtaResult runningEta() {
         if (ClientTimings.serverHasMod()) {
-            return ClientEtaState.mode == PacketEta.RUNNING ? ClientEtaState.result() : null;
+            int mode = ClientEtaState.mode;
+            return mode == PacketEta.RUNNING || mode == PacketEta.PAUSED ? ClientEtaState.result() : null;
         }
         long now = System.currentTimeMillis();
         if (cachedRunning == null || now - runningComputedAt > RUNNING_REFRESH_MILLIS) {
