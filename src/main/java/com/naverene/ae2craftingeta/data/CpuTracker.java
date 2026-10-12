@@ -46,16 +46,40 @@ public class CpuTracker {
     /** The CPU, other than the one given, that has a batch in flight through this interface, or null. */
     public static Object cpuUsing(ICraftingMedium medium, Object except) {
         for (Map.Entry<Object, CpuTracker> e : TRACKERS.entrySet()) {
-            if (e.getKey() == except) {
-                continue;
-            }
-            for (Set<ICraftingMedium> used : e.getValue().mediums.values()) {
-                if (used.contains(medium)) {
-                    return e.getKey();
-                }
+            CpuTracker tracker = e.getValue();
+            if (e.getKey() != except && tracker.uses(medium)) {
+                return e.getKey();
             }
         }
         return null;
+    }
+
+    private boolean uses(ICraftingMedium medium) {
+        for (Set<ICraftingMedium> used : mediums.values()) {
+            if (used.contains(medium)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean usedByAnotherCpu(ICraftingMedium medium) {
+        for (CpuTracker other : TRACKERS.values()) {
+            if (other != this && other.uses(medium)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether any batch of this job is in a machine right now. */
+    public boolean hasAnythingInFlight() {
+        for (ArrayDeque<Batch> queue : inFlight.values()) {
+            if (!queue.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether a batch making this output is in a machine right now. */
@@ -72,9 +96,10 @@ public class CpuTracker {
         }
         long now = now();
         ArrayDeque<Batch> queue = inFlight.computeIfAbsent(key, k -> new ArrayDeque<>());
-        // Only a batch pushed while nothing else of the same kind was waiting measures the machine itself;
-        // otherwise it also includes time spent queued behind earlier batches.
-        queue.addLast(new Batch(now, output.getStackSize(), queue.isEmpty()));
+        // Only a batch pushed while nothing else was waiting in that machine measures the machine itself; otherwise
+        // it also includes time spent queued behind earlier batches, this job's or another CPU's.
+        boolean idle = queue.isEmpty() && !usedByAnotherCpu(medium);
+        queue.addLast(new Batch(now, output.getStackSize(), idle));
         Span span = spans.computeIfAbsent(key, k -> new Span());
         span.batchSize = output.getStackSize();
         mediums.computeIfAbsent(key, k -> Collections.newSetFromMap(new IdentityHashMap<>()))
@@ -97,9 +122,9 @@ public class CpuTracker {
                 List<MachineStatus> probed = MachineProbe.probe(medium);
                 statuses.addAll(probed);
                 // With several machines behind one interface (a subnet), any of them may be on another recipe.
-                if (probed.size() == 1 && probed.get(0)
-                    .isWorking()) {
-                    MachineTimes.record(e.getKey(), probed.get(0).maxProgress);
+                MachineStatus only = probed.size() == 1 ? probed.get(0) : null;
+                if (only != null && only.isWorking()) {
+                    MachineTimes.record(e.getKey(), only.maxProgress);
                 }
             }
             if (!statuses.isEmpty()) {

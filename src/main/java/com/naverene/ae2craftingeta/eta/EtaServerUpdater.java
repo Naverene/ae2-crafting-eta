@@ -82,7 +82,8 @@ public class EtaServerUpdater {
                 send(player, previous, PacketEta.NONE, null, container);
                 return;
             }
-            send(player, previous, PacketEta.RUNNING, EtaCalculator.forRunningCpu(cpu), container);
+            int mode = BlockedReasons.waitingOnOtherJob(cpu) ? PacketEta.PAUSED : PacketEta.RUNNING;
+            send(player, previous, mode, EtaCalculator.forRunningCpu(cpu), container);
             // Machine progress changes every tick, so this goes out on every update rather than only on change.
             Network.CHANNEL.sendTo(
                 new PacketCpuStatus(

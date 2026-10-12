@@ -92,6 +92,32 @@ public final class BlockedReasons {
         return result;
     }
 
+    /**
+     * Whether the job is at a standstill because another CPU's job holds the interfaces it needs: nothing of this job
+     * is in a machine, and some step with work left is waiting on an interface another CPU is using.
+     */
+    public static boolean waitingOnOtherJob(CraftingCPUCluster cpu) {
+        IGrid grid = cpu.getGrid();
+        boolean moving = CpuTracker.of(cpu)
+            .hasAnythingInFlight();
+        if (moving || grid == null || !(grid.getCache(ICraftingGrid.class) instanceof CraftingGridCache cache)) {
+            return false;
+        }
+        for (Map.Entry<ICraftingPatternDetails, CraftingCPUCluster.TaskProgress> e : ((AccessorCraftingCPUCluster) cpu)
+            .ae2craftingeta$getTasks()
+            .entrySet()) {
+            if (((AccessorTaskProgress) e.getValue()).ae2craftingeta$getValue() <= 0) {
+                continue;
+            }
+            for (ICraftingMedium medium : cache.getMediums(e.getKey())) {
+                if (medium.isBusy() && CpuTracker.cpuUsing(medium, cpu) != null) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private static void addMediumReasons(CraftingCPUCluster cpu, ICraftingMedium medium, Set<String> reasons) {
         List<MachineStatus> machines = MachineProbe.probe(medium);
         String name = machines.isEmpty() ? "An interface" : machines.get(0).machine.getDisplayName();
