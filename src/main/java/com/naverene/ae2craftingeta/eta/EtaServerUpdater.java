@@ -10,11 +10,11 @@ import net.minecraft.server.MinecraftServer;
 import com.naverene.ae2craftingeta.AE2CraftingEta;
 import com.naverene.ae2craftingeta.data.CpuTracker;
 import com.naverene.ae2craftingeta.data.TimingStore;
+import com.naverene.ae2craftingeta.machine.BlockedReasons;
 import com.naverene.ae2craftingeta.mixins.late.AccessorContainerCraftConfirm;
 import com.naverene.ae2craftingeta.network.Network;
-import com.naverene.ae2craftingeta.network.PacketEta;
-import com.naverene.ae2craftingeta.machine.BlockedReasons;
 import com.naverene.ae2craftingeta.network.PacketCpuStatus;
+import com.naverene.ae2craftingeta.network.PacketEta;
 
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingGrid;
