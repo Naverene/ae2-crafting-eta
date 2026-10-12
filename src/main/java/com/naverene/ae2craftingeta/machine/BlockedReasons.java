@@ -101,7 +101,9 @@ public final class BlockedReasons {
         }
         for (MachineStatus status : machines) {
             String machine = status.machine.getDisplayName();
-            if (status.shutdownReason != null) {
+            if (status.detail != null) {
+                reasons.add(machine + " is in the way: " + status.detail);
+            } else if (status.shutdownReason != null) {
                 reasons.add(machine + " has shut down: " + status.shutdownReason);
             } else if (!status.isWorking()) {
                 reasons.add(machine + " is idle but its interface is still full; check its output and power");

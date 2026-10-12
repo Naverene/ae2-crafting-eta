@@ -58,7 +58,8 @@ public class PacketCpuStatus implements IMessage {
                 int maxProgress = buf.readInt();
                 boolean active = buf.readBoolean();
                 String shutdown = buf.readBoolean() ? ByteBufUtils.readUTF8String(buf) : null;
-                list.add(new MachineStatus(machine, progress, maxProgress, active, shutdown));
+                String detail = buf.readBoolean() ? ByteBufUtils.readUTF8String(buf) : null;
+                list.add(new MachineStatus(machine, progress, maxProgress, active, shutdown, detail));
             }
             if (output != null) {
                 machines.put(output, list);
@@ -95,6 +96,10 @@ public class PacketCpuStatus implements IMessage {
                 buf.writeBoolean(status.shutdownReason != null);
                 if (status.shutdownReason != null) {
                     ByteBufUtils.writeUTF8String(buf, status.shutdownReason);
+                }
+                buf.writeBoolean(status.detail != null);
+                if (status.detail != null) {
+                    ByteBufUtils.writeUTF8String(buf, status.detail);
                 }
             }
         }

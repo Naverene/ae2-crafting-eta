@@ -62,6 +62,9 @@ public final class MachineTooltip {
     }
 
     private static String describe(MachineStatus status) {
+        if (status.detail != null) {
+            return status.detail;
+        }
         if (status.shutdownReason != null) {
             return "shut down (" + status.shutdownReason + ")";
         }

@@ -94,11 +94,12 @@ public class CpuTracker {
         for (Map.Entry<IAEStack<?>, Set<ICraftingMedium>> e : mediums.entrySet()) {
             List<MachineStatus> statuses = new ArrayList<>();
             for (ICraftingMedium medium : e.getValue()) {
-                for (MachineStatus status : MachineProbe.probe(medium)) {
-                    statuses.add(status);
-                    if (status.isWorking()) {
-                        MachineTimes.record(e.getKey(), status.maxProgress);
-                    }
+                List<MachineStatus> probed = MachineProbe.probe(medium);
+                statuses.addAll(probed);
+                // With several machines behind one interface (a subnet), any of them may be on another recipe.
+                if (probed.size() == 1 && probed.get(0)
+                    .isWorking()) {
+                    MachineTimes.record(e.getKey(), probed.get(0).maxProgress);
                 }
             }
             if (!statuses.isEmpty()) {

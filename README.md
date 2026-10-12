@@ -46,7 +46,7 @@ Client-learned timings are saved in `.minecraft/ae2craftingeta/<server address>.
 
 - Machines shared between several patterns are treated as if each pattern had its own.
 - Throughput measured while a step was starved of inputs reads lower than the machine could manage, so estimates lean long.
-- Machine status only covers GregTech machines directly next to an ME Interface. Multiblocks fed through input buses or crafting input hatches aren't read yet.
+- Machine status follows an ME Interface to the GregTech machine next to it, through a smart input hatch or bus (crafting input hatches included) to its multiblock controller, and one level into a subnet (its interfaces and export buses). A plain input bus has no link to its controller, so a multiblock fed only through one isn't read. Buffer chests show how full they are.
 - Tooltips only appear in AE2's own terminals, not in Wireless Crafting Terminal.
 
 ## Building
