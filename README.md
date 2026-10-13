@@ -17,6 +17,8 @@ Everything on AE2's crafting screens sits behind a blue "(i)" in the title row. 
 
 If some steps of a plan have never run, the estimate says how many, e.g. "(3 of 12 steps not measured yet)".
 
+Times are counted in game ticks, so they assume the server runs at 20 TPS. When the server lags, crafts take longer than shown. Both (i) tooltips carry a reminder of this.
+
 ## How it works
 
 AE2 patterns carry no duration, so the mod learns one by watching each crafting CPU:

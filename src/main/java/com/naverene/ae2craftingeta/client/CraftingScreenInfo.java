@@ -25,6 +25,9 @@ public class CraftingScreenInfo {
 
     private static final long RUNNING_REFRESH_MILLIS = 500;
 
+    // Times are counted in game ticks, so they only match the clock when the server runs at full speed.
+    private static final String TPS_NOTE = "Assumes 20 TPS; server lag makes crafts take longer.";
+
     private Object cachedJob;
     private int cachedCoProcessors;
     private EtaResult cachedPlan;
@@ -50,6 +53,7 @@ public class CraftingScreenInfo {
         if (note != null) {
             lines.add(EnumChatFormatting.GRAY + note);
         }
+        lines.add(EnumChatFormatting.GRAY + TPS_NOTE);
         return lines.toArray(new String[0]);
     }
 
@@ -66,6 +70,7 @@ public class CraftingScreenInfo {
             if (note != null) {
                 lines.add(EnumChatFormatting.GRAY + note);
             }
+            lines.add(EnumChatFormatting.GRAY + TPS_NOTE);
         }
         CpuStatusSummary.addTo(lines);
         return lines.isEmpty() ? null : lines.toArray(new String[0]);
