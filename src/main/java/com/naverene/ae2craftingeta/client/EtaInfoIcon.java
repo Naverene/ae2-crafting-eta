@@ -44,7 +44,12 @@ public final class EtaInfoIcon {
         }
         // AE2 centers its windows, so the window's width follows from guiLeft.
         int windowWidth = gui.width - 2 * gui.getGuiLeft();
-        draw(gui, CraftingScreenInfo.INSTANCE.planInfoLines(gui), windowWidth - PLAN_SEARCH_FROM_RIGHT - GAP, mouseX, mouseY);
+        draw(
+            gui,
+            CraftingScreenInfo.INSTANCE.planInfoLines(gui),
+            windowWidth - PLAN_SEARCH_FROM_RIGHT - GAP,
+            mouseX,
+            mouseY);
     }
 
     private static void draw(AEBaseGui gui, String[] lines, int right, int mouseX, int mouseY) {
