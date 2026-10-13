@@ -1,7 +1,11 @@
 package com.naverene.ae2craftingeta.client;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraftforge.client.event.GuiScreenEvent;
 
 import com.naverene.ae2craftingeta.Config;
@@ -18,10 +22,13 @@ import appeng.crafting.v2.CraftingJobV2;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 /**
- * Draws the estimate just above the crafting plan and crafting status windows. Uses the server's estimate when the
- * server has this mod, and works it out on the client otherwise.
+ * The estimate for the crafting plan screen (drawn above the window) and the crafting status screen (shown by the info
+ * icon next to AE2's elapsed time, see {@link EtaInfoIcon}). Uses the server's estimate when the server has this mod,
+ * and works it out on the client otherwise.
  */
 public class EtaOverlay {
+
+    public static final EtaOverlay INSTANCE = new EtaOverlay();
 
     private static final int COLOR = 0xFFFFFF;
     private static final long RUNNING_REFRESH_MILLIS = 500;
@@ -37,31 +44,21 @@ public class EtaOverlay {
     private EtaResult countdownEstimate;
     private long countdownEndMillis;
 
+    private EtaOverlay() {}
+
+    /** Plan screen: the estimate is drawn centered above the window. */
     @SubscribeEvent
     public void onDrawScreen(GuiScreenEvent.DrawScreenEvent.Post event) {
-        if (!Config.showCraftingScreenEta) {
+        if (!Config.showCraftingScreenEta || !(event.gui instanceof GuiCraftConfirm confirm)) {
             return;
         }
-        String label;
-        EtaResult eta;
-        if (event.gui instanceof GuiCraftConfirm confirm) {
-            label = "Estimated time: ";
-            eta = planEta(confirm);
-        } else if (event.gui instanceof GuiCraftingCPU) {
-            label = "Time remaining: ";
-            eta = runningEta();
-        } else {
-            return;
-        }
+        EtaResult eta = planEta(confirm);
         if (eta == null || eta.totalSteps == 0) {
             return;
         }
         AEBaseGui gui = (AEBaseGui) event.gui;
-        String text = label
-            + (event.gui instanceof GuiCraftingCPU ? countdown(event.gui, eta) : TimeFormat.format(eta.ticks / 20.0));
-        String note = eta.unknownSteps > 0
-            ? "(" + eta.unknownSteps + " of " + eta.totalSteps + " steps not measured yet)"
-            : null;
+        String text = "Estimated time: " + TimeFormat.format(eta.ticks / 20.0);
+        String note = unmeasuredNote(eta);
         FontRenderer font = Minecraft.getMinecraft().fontRenderer;
         // AE2 centers its windows, so the window's middle is the screen's middle and its width follows from guiLeft.
         int centerX = gui.width / 2;
@@ -76,6 +73,32 @@ public class EtaOverlay {
             y = Math.max(0, y - 10);
         }
         drawCentered(font, text, centerX, y);
+    }
+
+    /**
+     * Status screen: the tooltip lines for the info icon next to AE2's elapsed time, or null when there is no estimate
+     * to show.
+     */
+    public String[] cpuInfoLines(GuiCraftingCPU gui) {
+        EtaResult eta = runningEta();
+        if (eta == null || eta.totalSteps == 0) {
+            return null;
+        }
+        List<String> lines = new ArrayList<>();
+        lines.add("Time remaining: " + countdown(gui, eta));
+        String note = unmeasuredNote(eta);
+        if (note != null) {
+            lines.add(EnumChatFormatting.GRAY + note);
+        }
+        if (ClientTimings.serverHasMod()) {
+            lines.add(EnumChatFormatting.GRAY + "Hover an item to see its machines or why it is waiting");
+        }
+        return lines.toArray(new String[0]);
+    }
+
+    private static String unmeasuredNote(EtaResult eta) {
+        return eta.unknownSteps > 0 ? "(" + eta.unknownSteps + " of " + eta.totalSteps + " steps not measured yet)"
+            : null;
     }
 
     private static void drawCentered(FontRenderer font, String text, int centerX, int y) {

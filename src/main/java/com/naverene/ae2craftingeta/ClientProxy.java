@@ -14,7 +14,7 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void init(FMLInitializationEvent event) {
         super.init(event);
-        MinecraftForge.EVENT_BUS.register(new EtaOverlay());
+        MinecraftForge.EVENT_BUS.register(EtaOverlay.INSTANCE);
         MinecraftForge.EVENT_BUS.register(new TerminalTooltipHandler());
         ClientConnectionHandler connection = new ClientConnectionHandler();
         FMLCommonHandler.instance()
