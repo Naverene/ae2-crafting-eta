@@ -6,23 +6,23 @@ import java.util.Map;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
 
+import com.naverene.ae2craftingeta.Config;
 import com.naverene.ae2craftingeta.machine.MachineStatus;
 
 /** The "Stuck" and "Machines" sections of the crafting status screen's info tooltip. */
 public final class CpuStatusSummary {
 
-    private static final int MAX_ITEMS_PER_SECTION = 6;
-
     private CpuStatusSummary() {}
 
     public static void addTo(List<String> lines) {
+        int max = Config.maxItemsPerSection;
         Map<ItemStack, List<String>> blocked = ClientMachineState.allBlocked();
-        if (!blocked.isEmpty()) {
+        if (Config.showStuckSection && !blocked.isEmpty()) {
             lines.add(EnumChatFormatting.YELLOW + "Stuck:");
             int shown = 0;
             for (Map.Entry<ItemStack, List<String>> e : blocked.entrySet()) {
-                if (shown++ == MAX_ITEMS_PER_SECTION) {
-                    lines.add(EnumChatFormatting.GRAY + "  and " + (blocked.size() - MAX_ITEMS_PER_SECTION) + " more");
+                if (shown++ == max) {
+                    lines.add(EnumChatFormatting.GRAY + "  and " + (blocked.size() - max) + " more");
                     break;
                 }
                 String item = e.getKey()
@@ -34,12 +34,12 @@ public final class CpuStatusSummary {
         }
 
         Map<ItemStack, List<MachineStatus>> machines = ClientMachineState.allMachines();
-        if (!machines.isEmpty()) {
+        if (Config.showMachinesSection && !machines.isEmpty()) {
             lines.add(EnumChatFormatting.AQUA + "Machines:");
             int shown = 0;
             for (Map.Entry<ItemStack, List<MachineStatus>> e : machines.entrySet()) {
-                if (shown++ == MAX_ITEMS_PER_SECTION) {
-                    lines.add(EnumChatFormatting.GRAY + "  and " + (machines.size() - MAX_ITEMS_PER_SECTION) + " more");
+                if (shown++ == max) {
+                    lines.add(EnumChatFormatting.GRAY + "  and " + (machines.size() - max) + " more");
                     break;
                 }
                 String item = e.getKey()

@@ -19,6 +19,8 @@ If some steps of a plan have never run, the estimate says how many, e.g. "(3 of 
 
 Times are counted in game ticks, so they assume the server runs at 20 TPS. When the server lags, crafts take longer than shown. Both (i) tooltips carry a reminder of this.
 
+To shorten the tooltips, `config/ae2craftingeta.cfg` has `showStuckSection`, `showMachinesSection` and `showTpsNote` (all on by default), plus `maxItemsPerSection` (default 6), which sets how many items each section lists before summing the rest as "and N more".
+
 ## How it works
 
 AE2 patterns carry no duration, so the mod learns one by watching each crafting CPU:

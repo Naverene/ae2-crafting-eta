@@ -5,6 +5,7 @@ import java.util.List;
 
 import net.minecraft.util.EnumChatFormatting;
 
+import com.naverene.ae2craftingeta.Config;
 import com.naverene.ae2craftingeta.eta.EtaCalculator;
 import com.naverene.ae2craftingeta.eta.EtaResult;
 import com.naverene.ae2craftingeta.mixins.late.AccessorGuiCraftConfirm;
@@ -53,7 +54,9 @@ public class CraftingScreenInfo {
         if (note != null) {
             lines.add(EnumChatFormatting.GRAY + note);
         }
-        lines.add(EnumChatFormatting.GRAY + TPS_NOTE);
+        if (Config.showTpsNote) {
+            lines.add(EnumChatFormatting.GRAY + TPS_NOTE);
+        }
         return lines.toArray(new String[0]);
     }
 
@@ -70,7 +73,9 @@ public class CraftingScreenInfo {
             if (note != null) {
                 lines.add(EnumChatFormatting.GRAY + note);
             }
-            lines.add(EnumChatFormatting.GRAY + TPS_NOTE);
+            if (Config.showTpsNote) {
+                lines.add(EnumChatFormatting.GRAY + TPS_NOTE);
+            }
         }
         CpuStatusSummary.addTo(lines);
         return lines.isEmpty() ? null : lines.toArray(new String[0]);
