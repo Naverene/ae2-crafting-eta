@@ -30,6 +30,7 @@ public class LateMixinsLoader implements ILateMixinLoader {
             .isClient()) {
             // Client-only learning for servers without this mod.
             mixins.add("AccessorGuiCraftConfirm");
+            mixins.add("MixinGuiCraftConfirm");
             mixins.add("MixinGuiCraftingCPU");
             mixins.add("MixinPacketCraftingCompleteNotification");
         }
