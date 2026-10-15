@@ -5,6 +5,7 @@ import java.util.List;
 
 import net.minecraft.util.EnumChatFormatting;
 
+import com.naverene.ae2craftingeta.Config;
 import com.naverene.ae2craftingeta.eta.EtaCalculator;
 import com.naverene.ae2craftingeta.eta.EtaResult;
 import com.naverene.ae2craftingeta.mixins.late.AccessorGuiCraftConfirm;
@@ -24,6 +25,9 @@ public class CraftingScreenInfo {
     public static final CraftingScreenInfo INSTANCE = new CraftingScreenInfo();
 
     private static final long RUNNING_REFRESH_MILLIS = 500;
+
+    // Times are counted in game ticks, so they only match the clock when the server runs at full speed.
+    private static final String TPS_NOTE = "Assumes 20 TPS; server lag makes crafts take longer.";
 
     private Object cachedJob;
     private int cachedCoProcessors;
@@ -50,6 +54,9 @@ public class CraftingScreenInfo {
         if (note != null) {
             lines.add(EnumChatFormatting.GRAY + note);
         }
+        if (Config.showTpsNote) {
+            lines.add(EnumChatFormatting.GRAY + TPS_NOTE);
+        }
         return lines.toArray(new String[0]);
     }
 
@@ -65,6 +72,9 @@ public class CraftingScreenInfo {
             String note = unmeasuredNote(eta);
             if (note != null) {
                 lines.add(EnumChatFormatting.GRAY + note);
+            }
+            if (Config.showTpsNote) {
+                lines.add(EnumChatFormatting.GRAY + TPS_NOTE);
             }
         }
         CpuStatusSummary.addTo(lines);
