@@ -37,6 +37,8 @@ public class CpuTracker {
     private final Map<IAEStack<?>, Span> spans = new HashMap<>();
     /** Per output with batches in flight, the interfaces those batches went to. */
     private final Map<IAEStack<?>, Set<ICraftingMedium>> mediums = new HashMap<>();
+    /** Per output with batches in flight, the pattern they were pushed for. */
+    private final Map<IAEStack<?>, ICraftingPatternDetails> patterns = new HashMap<>();
     private long lastMachineSample;
 
     public static CpuTracker of(Object cpu) {
@@ -104,6 +106,7 @@ public class CpuTracker {
         span.batchSize = output.getStackSize();
         mediums.computeIfAbsent(key, k -> Collections.newSetFromMap(new IdentityHashMap<>()))
             .add(medium);
+        patterns.put(key, details);
         if (now - lastMachineSample >= MACHINE_SAMPLE_TICKS) {
             lastMachineSample = now;
             machines();
@@ -123,8 +126,10 @@ public class CpuTracker {
                 statuses.addAll(probed);
                 // With several machines behind one interface (a subnet), any of them may be on another recipe.
                 MachineStatus only = probed.size() == 1 ? probed.get(0) : null;
-                if (only != null && only.isWorking()) {
-                    MachineTimes.record(e.getKey(), only.maxProgress);
+                long perRun = only == null ? 0 : MachineProbe.outputPerRun(only, e.getKey());
+                // perRun is 0 when the machine is running a recipe that does not make this output.
+                if (only != null && only.isWorking() && perRun != 0) {
+                    MachineTimes.record(e.getKey(), only.maxProgress, perRun);
                 }
             }
             if (!statuses.isEmpty()) {
@@ -168,7 +173,30 @@ public class CpuTracker {
         }
         if (queue.isEmpty()) {
             mediums.remove(key);
+            patterns.remove(key);
         }
+    }
+
+    /**
+     * Work already handed to machines but not back yet. AE2 takes these batches off the CPU's task list as soon as
+     * they are pushed, but a machine given a whole stack still has to run its recipe once per item.
+     */
+    public List<InFlight> inFlight() {
+        List<InFlight> result = new ArrayList<>();
+        long now = now();
+        for (Map.Entry<IAEStack<?>, ArrayDeque<Batch>> e : inFlight.entrySet()) {
+            ArrayDeque<Batch> queue = e.getValue();
+            ICraftingPatternDetails details = patterns.get(e.getKey());
+            if (queue.isEmpty() || details == null) {
+                continue;
+            }
+            long items = 0;
+            for (Batch batch : queue) {
+                items += batch.remaining;
+            }
+            result.add(new InFlight(details, items, Math.max(0, now - queue.peekFirst().pushedAt)));
+        }
+        return result;
     }
 
     /** The job finished: turn each output's busy span into a throughput sample and remember the whole job. */
@@ -200,11 +228,28 @@ public class CpuTracker {
         inFlight.clear();
         spans.clear();
         mediums.clear();
+        patterns.clear();
     }
 
     private static long now() {
         MinecraftServer server = MinecraftServer.getServer();
         return server == null ? 0L : server.getTickCounter();
+    }
+
+    /** Output still to come back from machines for one pattern. */
+    public static final class InFlight {
+
+        public final ICraftingPatternDetails details;
+        /** Items of the pattern's main output not yet returned. */
+        public final long items;
+        /** Ticks since the oldest of these batches was pushed. */
+        public final long ticksSincePush;
+
+        InFlight(ICraftingPatternDetails details, long items, long ticksSincePush) {
+            this.details = details;
+            this.items = items;
+            this.ticksSincePush = ticksSincePush;
+        }
     }
 
     private static final class Batch {

@@ -14,15 +14,19 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.fluids.FluidStack;
 
 import com.naverene.ae2craftingeta.AE2CraftingEta;
+import com.naverene.ae2craftingeta.data.StackKeys;
 
+import appeng.api.AEApi;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridHost;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingMedium;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
+import appeng.api.storage.data.IAEStack;
 import appeng.helpers.DualityInterface;
 import appeng.helpers.IInterfaceHost;
 import appeng.parts.automation.PartBaseExportBus;
@@ -257,9 +261,10 @@ public final class MachineProbe {
     }
 
     private static MachineStatus read(TileEntity tile) {
+        MachineStatus status;
         try {
             int id = (Integer) getMetaTileId.invoke(tile);
-            return new MachineStatus(
+            status = new MachineStatus(
                 new ItemStack(tile.getBlockType(), 1, id),
                 (Integer) getProgress.invoke(tile),
                 (Integer) getMaxProgress.invoke(tile),
@@ -270,5 +275,79 @@ public final class MachineProbe {
             AE2CraftingEta.LOG.debug("Could not read machine progress", e);
             return null;
         }
+        try {
+            readOutputs(getMetaTileEntity.invoke(tile), status);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            AE2CraftingEta.LOG.debug("Could not read machine outputs", e);
+        }
+        return status;
+    }
+
+    /**
+     * What the running recipe will output. Single-block machines keep it in mOutputItems and mOutputFluid,
+     * multiblocks in mOutputItems and mOutputFluids, already multiplied by parallels.
+     */
+    private static void readOutputs(Object meta, MachineStatus status) throws ReflectiveOperationException {
+        if (meta == null) {
+            return;
+        }
+        Class<?> type = meta.getClass();
+        Field items = publicField(type, "mOutputItems");
+        if (items == null) {
+            return;
+        }
+        Object itemValue = items.get(meta);
+        status.outputItems = itemValue instanceof ItemStack[] ? (ItemStack[]) itemValue : new ItemStack[0];
+        Field fluids = publicField(type, "mOutputFluids");
+        if (fluids == null) {
+            fluids = publicField(type, "mOutputFluid");
+        }
+        Object fluidValue = fluids == null ? null : fluids.get(meta);
+        if (fluidValue instanceof FluidStack[]) {
+            status.outputFluids = (FluidStack[]) fluidValue;
+        } else if (fluidValue instanceof FluidStack single) {
+            status.outputFluids = new FluidStack[] { single };
+        } else {
+            status.outputFluids = new FluidStack[0];
+        }
+    }
+
+    private static Field publicField(Class<?> type, String name) {
+        try {
+            return type.getField(name);
+        } catch (NoSuchFieldException | SecurityException e) {
+            return null;
+        }
+    }
+
+    /**
+     * How many of the given output the machine's current recipe makes in one run: -1 if its outputs could not be
+     * read, 0 if the current recipe does not make it.
+     */
+    public static long outputPerRun(MachineStatus status, IAEStack<?> key) {
+        if (status.outputItems == null || key == null) {
+            return -1;
+        }
+        long total = 0;
+        for (ItemStack stack : status.outputItems) {
+            if (stack != null && key.equals(StackKeys.of(stack))) {
+                total += stack.stackSize;
+            }
+        }
+        if (status.outputFluids != null) {
+            for (FluidStack fluid : status.outputFluids) {
+                if (fluid == null || fluid.getFluid() == null) {
+                    continue;
+                }
+                IAEStack<?> fluidKey = StackKeys.of(
+                    AEApi.instance()
+                        .storage()
+                        .createFluidStack(fluid));
+                if (key.equals(fluidKey)) {
+                    total += fluid.amount;
+                }
+            }
+        }
+        return total;
     }
 }
