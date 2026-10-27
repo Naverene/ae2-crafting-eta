@@ -50,6 +50,7 @@ public class CraftingScreenInfo {
         }
         List<String> lines = new ArrayList<>();
         lines.add("Estimated time: " + TimeFormat.format(eta.ticks / 20.0));
+        addOtherJobsNote(lines, eta);
         String note = unmeasuredNote(eta);
         if (note != null) {
             lines.add(EnumChatFormatting.GRAY + note);
@@ -69,6 +70,7 @@ public class CraftingScreenInfo {
         EtaResult eta = runningEta();
         if (eta != null && eta.totalSteps > 0) {
             lines.add("Time remaining: " + countdown(gui, eta));
+            addOtherJobsNote(lines, eta);
             String note = unmeasuredNote(eta);
             if (note != null) {
                 lines.add(EnumChatFormatting.GRAY + note);
@@ -79,6 +81,19 @@ public class CraftingScreenInfo {
         }
         CpuStatusSummary.addTo(lines);
         return lines.isEmpty() ? null : lines.toArray(new String[0]);
+    }
+
+    /** How much of the estimate is spent waiting for other CPUs' jobs on the same machines. */
+    private static void addOtherJobsNote(List<String> lines, EtaResult eta) {
+        if (eta.waitTicks < 20 || eta.otherJobs <= 0) {
+            return;
+        }
+        String jobs = eta.otherJobs == 1 ? "1 other job" : eta.otherJobs + " other jobs";
+        lines.add(
+            EnumChatFormatting.GRAY + "Includes about "
+                + TimeFormat.format(eta.waitTicks / 20.0)
+                + " sharing machines with "
+                + jobs);
     }
 
     private static String unmeasuredNote(EtaResult eta) {

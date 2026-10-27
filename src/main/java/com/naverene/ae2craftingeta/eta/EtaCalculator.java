@@ -46,6 +46,10 @@ import appeng.tile.crafting.TileMolecularAssembler;
  * machines busy). A step can start once each ingredient step has delivered its first batch, and cannot finish until
  * its last ingredients have arrived plus one more batch. The CPU itself can push at most (co-processors + 1) batches
  * per tick. The estimate is the latest step finish, or the CPU's push limit if that is slower.
+ *
+ * <p>
+ * Other busy CPUs on the network can be using the same interfaces. Their work already inside those machines delays
+ * every step that uses them, and their work still to be pushed takes turns with this job's (see {@link OtherJobs}).
  */
 public final class EtaCalculator {
 
@@ -79,7 +83,8 @@ public final class EtaCalculator {
             // A pattern with several outputs shows up once per output; it runs as many times as its largest need.
             batches.merge(details, needed, Math::max);
         }
-        return estimate(batches, Collections.emptyMap(), grid, coProcessors, serverLookup());
+        // The job is not on a CPU yet, so every busy CPU is another job.
+        return estimate(batches, Collections.emptyMap(), grid, coProcessors, serverLookup(), null);
     }
 
     /**
@@ -91,7 +96,7 @@ public final class EtaCalculator {
         if (job.originalRequest != null) {
             collectTree(job.originalRequest, batches, Collections.newSetFromMap(new IdentityHashMap<>()));
         }
-        return estimate(batches, Collections.emptyMap(), null, coProcessors, lookup);
+        return estimate(batches, Collections.emptyMap(), null, coProcessors, lookup, null);
     }
 
     private static void collectTree(CraftingRequest request, Map<ICraftingPatternDetails, Long> batches,
@@ -136,7 +141,7 @@ public final class EtaCalculator {
         ICraftingGrid grid = cpu.getGrid() == null ? null
             : cpu.getGrid()
                 .getCache(ICraftingGrid.class);
-        EtaResult queued = estimate(batches, started, grid, cpu.getCoProcessors(), serverLookup());
+        EtaResult queued = estimate(batches, started, grid, cpu.getCoProcessors(), serverLookup(), cpu);
 
         // The machine itself says how long its current run has left; never show less than that.
         long inMachines = 0;
@@ -151,7 +156,12 @@ public final class EtaCalculator {
         if (inMachines <= queued.ticks) {
             return queued;
         }
-        return new EtaResult(inMachines, queued.unknownSteps, Math.max(queued.totalSteps, busyOutputs));
+        return new EtaResult(
+            inMachines,
+            queued.unknownSteps,
+            Math.max(queued.totalSteps, busyOutputs),
+            queued.waitTicks,
+            queued.otherJobs);
     }
 
     /**
@@ -196,9 +206,11 @@ public final class EtaCalculator {
     /**
      * @param batches batches still to push, per pattern
      * @param started per pattern, {batches pushed to machines but not back yet, ticks since the oldest was pushed}
+     * @param self    the CPU running these batches, or null for a job that has not started; every other busy CPU on the
+     *                grid counts as competing for machines
      */
     static EtaResult estimate(Map<ICraftingPatternDetails, Long> batches, Map<ICraftingPatternDetails, long[]> started,
-        ICraftingGrid grid, int coProcessors, Function<IAEStack<?>, TimingStats> lookup) {
+        ICraftingGrid grid, int coProcessors, Function<IAEStack<?>, TimingStats> lookup, Object self) {
         if (batches.isEmpty() && started.isEmpty()) {
             return new EtaResult(0, 0, 0);
         }
@@ -232,6 +244,10 @@ public final class EtaCalculator {
             return new EtaResult(0, 0, 0);
         }
 
+        OtherJobs others = grid instanceof CraftingGridCache cache
+            ? OtherJobs.on(cache, self, (details, mediums) -> batchLatency(details, lookup, mediums))
+            : OtherJobs.NONE;
+
         int unknown = 0;
         long totalBatches = 0;
         for (Step step : steps) {
@@ -246,15 +262,34 @@ public final class EtaCalculator {
             if (!timeStep(step, lookup, grid)) {
                 unknown++;
             }
+            addWait(step, others);
         }
 
+        double cpuLimit = (double) totalBatches / (Math.max(0, coProcessors) + 1);
+        long alone = (long) Math.ceil(Math.max(finish(steps, false), cpuLimit));
+        long shared = (long) Math.ceil(Math.max(finish(steps, true), cpuLimit));
+        return new EtaResult(shared, unknown, steps.size(), shared - alone, others.jobs());
+    }
+
+    private static double finish(List<Step> steps, boolean withOtherJobs) {
         double finish = 0;
         Map<Step, double[]> memo = new IdentityHashMap<>();
         for (Step step : steps) {
-            finish = Math.max(finish, schedule(step, memo, new HashSet<>())[1]);
+            finish = Math.max(finish, schedule(step, memo, new HashSet<>(), withOtherJobs)[1]);
         }
-        double cpuLimit = (double) totalBatches / (Math.max(0, coProcessors) + 1);
-        return new EtaResult((long) Math.ceil(Math.max(finish, cpuLimit)), unknown, steps.size());
+        return finish;
+    }
+
+    /**
+     * How long other jobs hold up a step on the machines it shares with them. Work they already pushed comes out
+     * first. Work they still have to push takes turns with this step's, so it adds at most as much time as this step
+     * needs itself; any more of it is left for after this step is done.
+     */
+    private static void addWait(Step step, OtherJobs others) {
+        double[] wait = others.waitFor(step.mediums);
+        // A batch of this step already in a machine was pushed ahead of anything still waiting.
+        step.aheadWait = step.pushed > 0 ? 0 : wait[0];
+        step.totalWait = wait[0] + Math.min(wait[1], step.duration);
     }
 
     /** Fills in latency and throughput for a step. Returns false when nothing was known and a guess was used. */
@@ -262,25 +297,12 @@ public final class EtaCalculator {
         IAEStack<?> output = StackKeys.primaryOutput(step.details);
         long perBatch = output == null ? 1 : Math.max(1, output.getStackSize());
         List<ICraftingMedium> mediums = grid instanceof CraftingGridCache cache ? cache.getMediums(step.details) : null;
+        step.mediums = mediums;
         int machines = mediums == null ? 1 : Math.max(1, mediums.size());
 
         TimingStats stats = output == null ? null : lookup.apply(output);
-        boolean known = true;
-        if (stats != null && stats.latencySamples > 0) {
-            step.latency = stats.latencyTicks;
-        } else if (step.details.isCraftable()) {
-            step.latency = assemblerTicks(mediums);
-        } else if (MachineTimes.ticksPerItem(StackKeys.of(output)) > 0) {
-            // Not measured yet, but a machine was seen running this recipe. It runs once per recipe's worth of
-            // items, so a batch of a whole stack takes the recipe time that many times over.
-            step.latency = MachineTimes.ticksPerItem(StackKeys.of(output)) * perBatch;
-        } else if (stats != null && stats.rateSamples > 0) {
-            step.latency = perBatch / stats.itemsPerTick;
-        } else {
-            step.latency = Config.unknownBatchSeconds * 20.0;
-            known = false;
-        }
-        step.latency = Math.max(1, step.latency);
+        double known = knownLatency(step.details, stats, mediums);
+        step.latency = Math.max(1, known > 0 ? known : Config.unknownBatchSeconds * 20.0);
 
         if (stats != null && stats.rateSamples > 0) {
             step.itemsPerTick = stats.itemsPerTick;
@@ -291,7 +313,38 @@ public final class EtaCalculator {
         step.firstLatency = Math.max(1, step.latency - step.ticksSincePush);
         long total = step.batches + step.pushed;
         step.duration = step.firstLatency + (total - 1) * perBatch / step.itemsPerTick;
-        return known;
+        return known > 0;
+    }
+
+    /** Ticks for one batch of a pattern from an idle machine, guessing when nothing is known about it. */
+    private static double batchLatency(ICraftingPatternDetails details, Function<IAEStack<?>, TimingStats> lookup,
+        List<ICraftingMedium> mediums) {
+        IAEStack<?> output = StackKeys.primaryOutput(details);
+        double known = knownLatency(details, output == null ? null : lookup.apply(output), mediums);
+        return Math.max(1, known > 0 ? known : Config.unknownBatchSeconds * 20.0);
+    }
+
+    /** Ticks for one batch from what has been measured or seen, or 0 when nothing is known yet. */
+    private static double knownLatency(ICraftingPatternDetails details, TimingStats stats,
+        List<ICraftingMedium> mediums) {
+        IAEStack<?> output = StackKeys.primaryOutput(details);
+        long perBatch = output == null ? 1 : Math.max(1, output.getStackSize());
+        if (stats != null && stats.latencySamples > 0) {
+            return stats.latencyTicks;
+        }
+        if (details.isCraftable()) {
+            return assemblerTicks(mediums);
+        }
+        double perItem = MachineTimes.ticksPerItem(StackKeys.of(output));
+        if (perItem > 0) {
+            // Not measured yet, but a machine was seen running this recipe. It runs once per recipe's worth of
+            // items, so a batch of a whole stack takes the recipe time that many times over.
+            return perItem * perBatch;
+        }
+        if (stats != null && stats.rateSamples > 0) {
+            return perBatch / stats.itemsPerTick;
+        }
+        return 0;
     }
 
     /** Ticks per craft of the fastest Molecular Assembler that can run the pattern. */
@@ -312,7 +365,7 @@ public final class EtaCalculator {
     }
 
     /** Returns {first batch out, last batch out} in ticks from the start of the job. */
-    private static double[] schedule(Step step, Map<Step, double[]> memo, Set<Step> visiting) {
+    private static double[] schedule(Step step, Map<Step, double[]> memo, Set<Step> visiting, boolean withOtherJobs) {
         double[] cached = memo.get(step);
         if (cached != null) {
             return cached;
@@ -324,7 +377,7 @@ public final class EtaCalculator {
         double start = 0;
         double inputsDone = 0;
         for (Step input : step.inputs) {
-            double[] times = schedule(input, memo, visiting);
+            double[] times = schedule(input, memo, visiting, withOtherJobs);
             start = Math.max(start, times[0]);
             inputsDone = Math.max(inputsDone, times[1]);
         }
@@ -333,11 +386,11 @@ public final class EtaCalculator {
             // Already running, so it does not wait for its first ingredients.
             start = 0;
         }
-        double firstOut = start + step.firstLatency;
-        double lastOut = start + step.duration;
+        double firstOut = start + step.firstLatency + (withOtherJobs ? step.aheadWait : 0);
+        double lastOut = start + step.duration + (withOtherJobs ? step.totalWait : 0);
         if (step.batches > 0) {
             // The last batch still to push cannot finish before its ingredients arrive and it goes through.
-            lastOut = Math.max(lastOut, inputsDone + step.latency);
+            lastOut = Math.max(lastOut, inputsDone + step.latency + (withOtherJobs ? step.aheadWait : 0));
         }
         double[] result = { firstOut, lastOut };
         memo.put(step, result);
@@ -369,6 +422,12 @@ public final class EtaCalculator {
         double firstLatency;
         double itemsPerTick;
         double duration;
+        /** The interfaces this step can be pushed to, or null when not known. */
+        List<ICraftingMedium> mediums;
+        /** Ticks other jobs' work already in this step's machines delays its first batch. */
+        double aheadWait;
+        /** Ticks other jobs add to this step as a whole. */
+        double totalWait;
 
         Step(ICraftingPatternDetails details, long batches, long pushed, long ticksSincePush) {
             this.details = details;

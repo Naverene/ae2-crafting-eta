@@ -30,6 +30,8 @@ import cpw.mods.fml.common.gameevent.TickEvent;
 public class EtaServerUpdater {
 
     private static final int INTERVAL_TICKS = 10;
+    /** How often the plan screen's estimate is redone while it stays open, as other CPUs' jobs move on. */
+    private static final int PLAN_REFRESH_TICKS = 100;
 
     private final Map<EntityPlayerMP, Sent> lastSent = new WeakHashMap<>();
     private int tick;
@@ -65,8 +67,10 @@ public class EtaServerUpdater {
                 return;
             }
             int coProcessors = confirm.getCpuCoProcessors();
-            // Planning is the expensive part; reuse the estimate until the job or the selected CPU changes.
-            if (previous != null && previous.container == container
+            // Planning is the expensive part; reuse the estimate until the job or the selected CPU changes, or other
+            // CPUs' jobs have had time to move on.
+            boolean fresh = previous != null && tick - previous.computedAt < PLAN_REFRESH_TICKS;
+            if (fresh && previous.container == container
                 && previous.source == job
                 && previous.coProcessors == coProcessors) {
                 return;
@@ -76,6 +80,7 @@ public class EtaServerUpdater {
             Sent sent = send(player, previous, PacketEta.PLAN, eta, container);
             sent.source = job;
             sent.coProcessors = coProcessors;
+            sent.computedAt = tick;
         } else if (container instanceof ContainerCraftingCPU status) {
             CraftingCPUCluster cpu = status.getCpu();
             if (cpu == null || !cpu.isBusy()) {
@@ -124,6 +129,7 @@ public class EtaServerUpdater {
         final Container container;
         Object source;
         int coProcessors;
+        int computedAt;
 
         Sent(int mode, EtaResult eta, Container container) {
             this.mode = mode;
