@@ -23,6 +23,8 @@ public class PacketEta implements IMessage {
     private long ticks;
     private int unknownSteps;
     private int totalSteps;
+    private long waitTicks;
+    private int otherJobs;
 
     public PacketEta() {}
 
@@ -32,6 +34,8 @@ public class PacketEta implements IMessage {
             this.ticks = eta.ticks;
             this.unknownSteps = eta.unknownSteps;
             this.totalSteps = eta.totalSteps;
+            this.waitTicks = eta.waitTicks;
+            this.otherJobs = eta.otherJobs;
         }
     }
 
@@ -41,6 +45,8 @@ public class PacketEta implements IMessage {
         ticks = buf.readLong();
         unknownSteps = buf.readInt();
         totalSteps = buf.readInt();
+        waitTicks = buf.readLong();
+        otherJobs = buf.readInt();
     }
 
     @Override
@@ -49,13 +55,22 @@ public class PacketEta implements IMessage {
         buf.writeLong(ticks);
         buf.writeInt(unknownSteps);
         buf.writeInt(totalSteps);
+        buf.writeLong(waitTicks);
+        buf.writeInt(otherJobs);
     }
 
     public static class Handler implements IMessageHandler<PacketEta, IMessage> {
 
         @Override
         public IMessage onMessage(PacketEta message, MessageContext ctx) {
-            ClientEtaState.set(message.mode, message.ticks, message.unknownSteps, message.totalSteps);
+            ClientEtaState.set(
+                message.mode,
+                new EtaResult(
+                    message.ticks,
+                    message.unknownSteps,
+                    message.totalSteps,
+                    message.waitTicks,
+                    message.otherJobs));
             return null;
         }
     }

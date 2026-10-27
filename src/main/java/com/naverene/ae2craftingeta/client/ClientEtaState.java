@@ -6,20 +6,16 @@ import com.naverene.ae2craftingeta.eta.EtaResult;
 public final class ClientEtaState {
 
     public static volatile int mode;
-    public static volatile long ticks;
-    public static volatile int unknownSteps;
-    public static volatile int totalSteps;
+    private static volatile EtaResult result = new EtaResult(0, 0, 0);
 
     private ClientEtaState() {}
 
-    public static void set(int mode, long ticks, int unknownSteps, int totalSteps) {
-        ClientEtaState.ticks = ticks;
-        ClientEtaState.unknownSteps = unknownSteps;
-        ClientEtaState.totalSteps = totalSteps;
+    public static void set(int mode, EtaResult result) {
+        ClientEtaState.result = result;
         ClientEtaState.mode = mode;
     }
 
     public static EtaResult result() {
-        return new EtaResult(ticks, unknownSteps, totalSteps);
+        return result;
     }
 }

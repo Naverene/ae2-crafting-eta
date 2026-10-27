@@ -194,7 +194,13 @@ public class CpuTracker {
             for (Batch batch : queue) {
                 items += batch.remaining;
             }
-            result.add(new InFlight(details, items, Math.max(0, now - queue.peekFirst().pushedAt)));
+            Set<ICraftingMedium> used = mediums.get(e.getKey());
+            result.add(
+                new InFlight(
+                    details,
+                    items,
+                    Math.max(0, now - queue.peekFirst().pushedAt),
+                    used == null ? Collections.emptySet() : used));
         }
         return result;
     }
@@ -244,11 +250,14 @@ public class CpuTracker {
         public final long items;
         /** Ticks since the oldest of these batches was pushed. */
         public final long ticksSincePush;
+        /** The interfaces these batches were pushed to. */
+        public final Set<ICraftingMedium> mediums;
 
-        InFlight(ICraftingPatternDetails details, long items, long ticksSincePush) {
+        InFlight(ICraftingPatternDetails details, long items, long ticksSincePush, Set<ICraftingMedium> mediums) {
             this.details = details;
             this.items = items;
             this.ticksSincePush = ticksSincePush;
+            this.mediums = mediums;
         }
     }
 
