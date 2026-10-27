@@ -34,7 +34,7 @@ final class OtherJobs {
     private OtherJobs() {}
 
     /**
-     * @param except the CPU the estimate is for, or null for a job that has not started yet
+     * @param except  the CPU the estimate is for, or null for a job that has not started yet
      * @param latency machine ticks for one batch of a pattern, given the interfaces it can go to
      */
     static OtherJobs on(CraftingGridCache cache, Object except, PatternLatency latency) {

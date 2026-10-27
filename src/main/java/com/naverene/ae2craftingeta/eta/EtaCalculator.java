@@ -206,8 +206,8 @@ public final class EtaCalculator {
     /**
      * @param batches batches still to push, per pattern
      * @param started per pattern, {batches pushed to machines but not back yet, ticks since the oldest was pushed}
-     * @param self the CPU running these batches, or null for a job that has not started; every other busy CPU on the
-     *             grid counts as competing for machines
+     * @param self    the CPU running these batches, or null for a job that has not started; every other busy CPU on the
+     *                grid counts as competing for machines
      */
     static EtaResult estimate(Map<ICraftingPatternDetails, Long> batches, Map<ICraftingPatternDetails, long[]> started,
         ICraftingGrid grid, int coProcessors, Function<IAEStack<?>, TimingStats> lookup, Object self) {
@@ -365,8 +365,7 @@ public final class EtaCalculator {
     }
 
     /** Returns {first batch out, last batch out} in ticks from the start of the job. */
-    private static double[] schedule(Step step, Map<Step, double[]> memo, Set<Step> visiting,
-        boolean withOtherJobs) {
+    private static double[] schedule(Step step, Map<Step, double[]> memo, Set<Step> visiting, boolean withOtherJobs) {
         double[] cached = memo.get(step);
         if (cached != null) {
             return cached;
