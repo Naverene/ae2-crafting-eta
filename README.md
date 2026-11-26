@@ -49,6 +49,10 @@ The mod works best installed on both the server and the client, but a client can
 
 Client-learned timings are saved in `.minecraft/ae2craftingeta/<server address>.dat`.
 
+## Mixed versions
+
+A server with the mod accepts any client: one with a different version of the mod, or without it. Players without it see AE2's normal crafting screens. Players on an older version keep their overlay and get whatever the server sends, so server-side fixes reach them without an update.
+
 ## Known limits
 
 - Machines shared between several patterns are treated as if each pattern had its own.
