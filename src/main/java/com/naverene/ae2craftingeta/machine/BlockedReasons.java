@@ -139,8 +139,16 @@ public final class BlockedReasons {
 
     private static String describeJob(ICraftingCPU cpu) {
         IAEStack<?> output = cpu.getFinalMultiOutput();
-        String job = output == null ? "another request"
-            : "making " + cpu.getStartItemCount() + " " + Platform.getItemDisplayName(output);
+        // The count comes from the requested output itself. The CPU's start item count is every item the
+        // job moves, intermediates included, so it reads as thousands of machines for a request of one.
+        String job;
+        if (output == null) {
+            job = "another request";
+        } else if (output.getStackSize() > 0) {
+            job = "making " + output.getStackSize() + " " + Platform.getItemDisplayName(output);
+        } else {
+            job = "making " + Platform.getItemDisplayName(output);
+        }
         String name = cpu.getName();
         return name == null || name.isEmpty() ? job : job + " on " + name;
     }
