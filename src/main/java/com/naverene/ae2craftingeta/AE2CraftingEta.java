@@ -13,6 +13,9 @@ import cpw.mods.fml.common.event.FMLPreInitializationEvent;
     version = Tags.VERSION,
     name = "AE2 Crafting ETA",
     acceptedMinecraftVersions = "[1.7.10]",
+    // Optional on clients: players without the mod (or with another version) can still join;
+    // the server only sends ETA packets to clients running the same version (see Network.canSendTo).
+    acceptableRemoteVersions = "*",
     dependencies = "required-after:appliedenergistics2")
 public class AE2CraftingEta {
 
