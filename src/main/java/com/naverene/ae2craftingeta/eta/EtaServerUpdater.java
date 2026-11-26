@@ -45,8 +45,12 @@ public class EtaServerUpdater {
         if (server == null) {
             return;
         }
+        Network.sendPendingStats(TimingStore.get());
         for (Object o : server.getConfigurationManager().playerEntityList) {
             EntityPlayerMP player = (EntityPlayerMP) o;
+            if (!Network.canSendTo(player)) {
+                continue;
+            }
             try {
                 update(player);
             } catch (RuntimeException e) {
@@ -90,7 +94,7 @@ public class EtaServerUpdater {
             int mode = BlockedReasons.waitingOnOtherJob(cpu) ? PacketEta.PAUSED : PacketEta.RUNNING;
             send(player, previous, mode, EtaCalculator.forRunningCpu(cpu), container);
             // Machine progress changes every tick, so this goes out on every update rather than only on change.
-            Network.CHANNEL.sendTo(
+            Network.sendTo(
                 new PacketCpuStatus(
                     CpuTracker.of(cpu)
                         .machines(),
@@ -108,17 +112,18 @@ public class EtaServerUpdater {
         if (same) {
             return previous;
         }
-        Network.CHANNEL.sendTo(new PacketEta(mode, eta), player);
+        Network.sendTo(new PacketEta(mode, eta), player);
         Sent sent = new Sent(mode, eta, container);
         lastSent.put(player, sent);
         return sent;
     }
 
+    /** The full timing table goes out once the client says hello (see Network.onHello), not at login. */
     @SubscribeEvent
-    public void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
-        TimingStore store = TimingStore.get();
-        if (store != null && event.player instanceof EntityPlayerMP player) {
-            Network.sendAllStats(store, player);
+    public void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.player instanceof EntityPlayerMP player) {
+            Network.forget(player);
+            lastSent.remove(player);
         }
     }
 
